@@ -108,6 +108,24 @@ export function fillWithAI(lobby: LobbyState): LobbyState {
 }
 
 /**
+ * Add a single AI player to the lobby
+ */
+export function addSingleAI(lobby: LobbyState): LobbyState {
+  if (lobby.players.length >= lobby.maxPlayers) {
+    throw new Error('Lobby is full')
+  }
+
+  const usedNames = new Set(lobby.players.map(p => p.name))
+  const aiPlayer = createAIPlayer()
+  aiPlayer.name = getUniqueName(usedNames)
+
+  return {
+    ...lobby,
+    players: [...lobby.players, aiPlayer]
+  }
+}
+
+/**
  * Toggle player ready status
  */
 export function togglePlayerReady(lobby: LobbyState, playerId: string): LobbyState {
@@ -127,10 +145,10 @@ export function areAllPlayersReady(lobby: LobbyState): boolean {
 }
 
 /**
- * Check if lobby can start (at least 1 player, all ready)
+ * Check if lobby can start (2-4 players, all ready)
  */
 export function canStartGame(lobby: LobbyState): boolean {
-  return lobby.players.length > 0 && areAllPlayersReady(lobby)
+  return lobby.players.length >= 2 && lobby.players.length <= 4 && areAllPlayersReady(lobby)
 }
 
 /**

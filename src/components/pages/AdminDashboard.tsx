@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
 import { getAllQuestionsForAdmin, getQuestionStats, removeQuestion, type AdminQuestionStats } from "@/lib/services/adminService"
-import { cn, formatDifficulty, getDifficultyColorClasses } from "@/lib/utils/utils"
+import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS } from "@/lib/utils/utils"
 import type { Question } from "@/lib/utils/types"
 
 interface AdminDashboardProps {
@@ -142,6 +142,50 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
                 </div>
               </CardContent>
             </Card>
+
+            <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm md:col-span-2">
+              <CardHeader>
+                <CardTitle className="text-lg text-purple-300">Category × Difficulty Matrix</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-700">
+                        <th className="text-left p-2 text-slate-400 font-semibold sticky left-0 bg-slate-800/50">Category</th>
+                        {QUIZ_DIFFICULTY_LEVELS.map(level => (
+                          <th key={level.category} className="text-center p-2 text-slate-400 font-semibold whitespace-nowrap">
+                            {level.category}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {Object.keys(stats.questionsByCategory).sort().map(category => (
+                        <tr key={category} className="border-b border-slate-700/50 hover:bg-slate-700/20">
+                          <td className="p-2 text-slate-300 font-medium sticky left-0 bg-slate-800/50">
+                            {category}
+                          </td>
+                          {QUIZ_DIFFICULTY_LEVELS.map(level => {
+                            const count = stats.categoryDifficultyMatrix[category]?.[level.category] || 0
+                            return (
+                              <td key={level.category} className="text-center p-2">
+                                <span className={cn(
+                                  "inline-block w-8 h-8 rounded flex items-center justify-center font-semibold",
+                                  count > 0 ? "bg-purple-600/30 text-purple-300" : "bg-slate-700/20 text-slate-600"
+                                )}>
+                                  {count || '−'}
+                                </span>
+                              </td>
+                            )
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 
@@ -213,8 +257,16 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
                           </div>
                         </td>
                         <td className="p-3">
-                          <div className="text-xs text-slate-300 line-clamp-2">
-                            {question.category}
+                          <div className="flex flex-wrap gap-1">
+                            {question.categories && question.categories.length > 0 ? (
+                              question.categories.map((cat) => (
+                                <span key={cat} className="text-xs px-2 py-1 rounded bg-purple-600/30 text-purple-300">
+                                  {cat}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="text-xs text-slate-500">N/A</span>
+                            )}
                           </div>
                         </td>
                         <td className="p-3">
@@ -223,7 +275,7 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
                               "text-xs px-2 py-1 rounded font-semibold text-center",
                               getDifficultyColorClasses(question.difficulty)
                             )}>
-                              {formatDifficulty(question.difficulty)}
+                              {QUIZ_DIFFICULTY_LEVELS.find(l => question.difficulty <= l.max)?.category || 'Unknown'}
                             </span>
                             <span className="text-xs text-slate-500 text-center font-mono">
                               {question.difficulty.toFixed(3)}

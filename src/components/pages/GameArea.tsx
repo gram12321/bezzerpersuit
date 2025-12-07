@@ -1,7 +1,11 @@
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
 import { useGameState } from "@/hooks"
-import { cn, formatDifficulty, getDifficultyColorClasses } from "@/lib/utils/utils"
-import type { LobbyState } from '@/lib/utils/types'
+import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS } from "@/lib/utils/utils"
+import type { LobbyState, QuestionCategory } from '@/lib/utils/types'
+import { QUIZ_CATEGORIES } from '@/lib/utils/types'
+import { createDifficultyScore } from '@/lib/types'
+import { QUESTIONS_PER_GAME } from '@/lib/constants'
+
 
 interface GameAreaProps {
   lobby: LobbyState
@@ -9,7 +13,7 @@ interface GameAreaProps {
 }
 
 export function GameArea({ lobby, onExit }: GameAreaProps) {
-  const { gameState, startGame, submitAnswer, nextQuestion, endGame } = useGameState(lobby)
+  const { gameState, startGame, submitAnswer, nextQuestion, endGame, selectCategory, selectDifficulty, getCurrentTurnPlayer } = useGameState(lobby)
 
   if (gameState.isLoading) {
     return (
@@ -189,6 +193,122 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
   }
 
   const currentQuestion = gameState.questions[gameState.currentQuestionIndex]
+  const currentTurnPlayer = getCurrentTurnPlayer()
+  const isCurrentPlayersTurn = currentTurnPlayer?.id === gameState.currentPlayerId
+
+  // Category Selection Phase
+  if (gameState.gamePhase === 'category-selection') {
+    return (
+      <div className="min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+        <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm max-w-3xl w-full">
+          <CardHeader>
+            <CardTitle className="text-3xl text-white text-center">
+              {isCurrentPlayersTurn ? "Your Turn!" : `${currentTurnPlayer?.name}'s Turn`}
+            </CardTitle>
+            <p className="text-center text-purple-300 text-lg mt-2">
+              {isCurrentPlayersTurn ? "Choose a category and difficulty" : "Waiting for category selection..."}
+            </p>
+            <div className="flex items-center justify-center gap-4 mt-3">
+              <p className="text-center text-slate-400 text-sm">
+                Question {gameState.currentQuestionIndex + 1} of {QUESTIONS_PER_GAME}
+              </p>
+              <div className={cn(
+                "text-sm font-bold px-3 py-1 rounded",
+                gameState.selectionTimeRemaining <= 5 ? "bg-red-600/30 text-red-300" : "bg-slate-700/50 text-slate-300"
+              )}>
+                ⏱️ {gameState.selectionTimeRemaining}s
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {isCurrentPlayersTurn ? (
+              <>
+                <div className="space-y-3">
+                  <h3 className="text-white font-semibold">
+                    Select Category:
+                    {gameState.selectedCategory && (
+                      <span className="ml-2 text-sm text-green-400">✓ Selected</span>
+                    )}
+                  </h3>
+                  <div className="grid gap-2">
+                    {QUIZ_CATEGORIES.map((category: QuestionCategory) => (
+                      <Button
+                        key={category}
+                        onClick={() => selectCategory(category)}
+                        className={cn(
+                          "w-full text-white text-left justify-start h-auto py-3",
+                          gameState.selectedCategory === category
+                            ? "bg-purple-600 hover:bg-purple-700 border-2 border-purple-400"
+                            : "bg-slate-700 hover:bg-slate-600"
+                        )}
+                      >
+                        {category}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  <h3 className="text-white font-semibold">
+                    Select Difficulty:
+                    {gameState.selectedDifficulty && (
+                      <span className="ml-2 text-sm text-green-400">✓ Selected</span>
+                    )}
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    {QUIZ_DIFFICULTY_LEVELS.map((level) => {
+                      const targetDifficulty = createDifficultyScore(level.max - 0.05)
+                      const isSelected = gameState.selectedDifficulty && 
+                        Math.abs(gameState.selectedDifficulty - targetDifficulty) < 0.01
+                      
+                      return (
+                        <Button
+                          key={level.max}
+                          onClick={() => selectDifficulty(targetDifficulty)}
+                          className={cn(
+                            "w-full text-white text-left justify-start h-auto py-3 px-4",
+                            isSelected
+                              ? "ring-2 ring-white ring-offset-2 ring-offset-slate-900"
+                              : "",
+                            level.buttonColorClasses
+                          )}
+                          title={level.description}
+                        >
+                          <div>
+                            <div className="font-semibold">{level.category}</div>
+                            <div className="text-xs opacity-80">{level.max * 100}%</div>
+                          </div>
+                        </Button>
+                      )
+                    })}
+                  </div>
+                </div>
+                {gameState.selectedCategory && gameState.selectedDifficulty && (
+                  <div className="text-center py-3 px-4 bg-green-600/20 border border-green-600/50 rounded-lg">
+                    <p className="text-green-300 font-semibold">
+                      ✓ Selection complete! Loading question...
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <div className="text-purple-400 text-lg animate-pulse">
+                  Waiting for {currentTurnPlayer?.name} to choose...
+                </div>
+              </div>
+            )}
+            <Button 
+              onClick={endGame}
+              variant="outline"
+              className="w-full border-slate-600 text-white hover:bg-slate-800"
+            >
+              Exit Game
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
@@ -273,20 +393,30 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
           <CardHeader>
             <div className="flex justify-between items-start">
               <div className="space-y-2 flex-1">
-                <div className="flex gap-2">
-                  <span className="text-xs px-2 py-1 rounded bg-purple-600/30 text-purple-300">
-                    {currentQuestion.category}
-                  </span>
+                <div className="flex gap-2 items-center flex-wrap">
+                  {currentQuestion.categories.map((cat) => (
+                    <span key={cat} className="text-xs px-2 py-1 rounded bg-purple-600/30 text-purple-300">
+                      {cat}
+                    </span>
+                  ))}
                   <span className={cn(
                     "text-xs px-2 py-1 rounded",
                     getDifficultyColorClasses(currentQuestion.difficulty)
                   )}>
-                    {formatDifficulty(currentQuestion.difficulty)}
+                    {QUIZ_DIFFICULTY_LEVELS.find(l => currentQuestion.difficulty <= l.max)?.category || 'Unknown'}
+                  </span>
+                  <span className="text-xs px-2 py-1 rounded bg-blue-600/30 text-blue-300">
+                    {currentTurnPlayer?.name}'s Turn
                   </span>
                 </div>
                 <CardTitle className="text-2xl text-white">
                   {currentQuestion.question}
                 </CardTitle>
+                <p className="text-sm text-slate-400">
+                  {isCurrentPlayersTurn 
+                    ? "Get it right to score! Others can't score if you're correct." 
+                    : "Answer correctly to score if the turn player is wrong!"}
+                </p>
               </div>
               <Button 
                 onClick={endGame}
@@ -299,45 +429,94 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
-            {currentQuestion.answers.map((answer, index) => (
-              <Button
-                key={index}
-                onClick={() => !gameState.showResult && submitAnswer(index)}
-                disabled={gameState.showResult}
-                className={cn(
-                  "w-full justify-start text-left h-auto py-4 px-6 text-base",
-                  !gameState.showResult && "bg-slate-700 hover:bg-slate-600 text-white",
-                  gameState.showResult && index === currentQuestion.correctAnswerIndex && "bg-green-600 hover:bg-green-600 text-white",
-                  gameState.showResult && index === gameState.selectedAnswer && index !== currentQuestion.correctAnswerIndex && "bg-red-600 hover:bg-red-600 text-white",
-                  gameState.showResult && index !== currentQuestion.correctAnswerIndex && index !== gameState.selectedAnswer && "bg-slate-700/50 text-slate-400"
-                )}
-              >
-                <span className="mr-3 font-bold">{String.fromCharCode(65 + index)}.</span>
-                {answer}
-              </Button>
-            ))}
+            {currentQuestion.answers.map((answer, index) => {
+              const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayerId)
+              const hasPlayerAnswered = currentPlayer?.hasAnswered || false
+              
+              return (
+                <Button
+                  key={index}
+                  onClick={() => !hasPlayerAnswered && submitAnswer(index, gameState.currentPlayerId)}
+                  disabled={hasPlayerAnswered || gameState.gamePhase === 'results'}
+                  className={cn(
+                    "w-full justify-start text-left h-auto py-4 px-6 text-base",
+                    !hasPlayerAnswered && gameState.gamePhase === 'answering' && "bg-slate-700 hover:bg-slate-600 text-white",
+                    hasPlayerAnswered && currentPlayer?.selectedAnswer === index && "bg-blue-600 hover:bg-blue-600 text-white",
+                    gameState.gamePhase === 'results' && index === currentQuestion.correctAnswerIndex && "bg-green-600 hover:bg-green-600 text-white",
+                    gameState.gamePhase === 'results' && index === currentPlayer?.selectedAnswer && index !== currentQuestion.correctAnswerIndex && "bg-red-600 hover:bg-red-600 text-white",
+                    gameState.gamePhase === 'results' && index !== currentQuestion.correctAnswerIndex && index !== currentPlayer?.selectedAnswer && "bg-slate-700/50 text-slate-400"
+                  )}
+                >
+                  <span className="mr-3 font-bold">{String.fromCharCode(65 + index)}.</span>
+                  {answer}
+                  {hasPlayerAnswered && currentPlayer?.selectedAnswer === index && gameState.gamePhase === 'answering' && (
+                    <span className="ml-auto text-xs">✓ Your Answer</span>
+                  )}
+                </Button>
+              )
+            })}
+            
+            {gameState.gamePhase === 'answering' && gameState.players.find(p => p.id === gameState.currentPlayerId)?.hasAnswered && (
+              <div className="text-center text-purple-300 text-sm py-2 animate-pulse">
+                Waiting for other players...
+              </div>
+            )}
 
-            {gameState.showResult && (
-              <div className="pt-4">
+            {gameState.gamePhase === 'results' && (
+              <div className="pt-4 space-y-4">
                 <div className={cn(
-                  "p-4 rounded-lg text-center",
-                  gameState.isCorrect ? "bg-green-600/20 text-green-300" : "bg-red-600/20 text-red-300"
+                  "p-4 rounded-lg",
+                  "bg-slate-700/50"
                 )}>
-                  <p className="font-bold text-lg">
-                    {gameState.isCorrect ? '🎉 Correct!' : '❌ Wrong!'}
+                  <p className="font-bold text-lg text-white text-center mb-3">
+                    Round Results
                   </p>
-                  <p className="text-sm mt-1">
-                    {gameState.isCorrect 
-                      ? '+1 point' 
-                      : `Correct answer: ${currentQuestion.answers[currentQuestion.correctAnswerIndex]}`
-                    }
+                  <div className="space-y-2">
+                    {gameState.players.map((player, index) => {
+                      const isCorrect = player.selectedAnswer === currentQuestion.correctAnswerIndex
+                      const isTurnPlayer = index === gameState.currentTurnPlayerIndex
+                      const earnedPoint = isTurnPlayer 
+                        ? isCorrect 
+                        : (!gameState.players[gameState.currentTurnPlayerIndex].selectedAnswer || 
+                           gameState.players[gameState.currentTurnPlayerIndex].selectedAnswer !== currentQuestion.correctAnswerIndex) && isCorrect
+                      
+                      return (
+                        <div 
+                          key={player.id}
+                          className={cn(
+                            "flex items-center justify-between p-2 rounded",
+                            player.id === gameState.currentPlayerId ? "bg-purple-600/30" : "bg-slate-800/30"
+                          )}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-white font-medium">
+                              {player.name}
+                              {player.isAI && ' 🤖'}
+                              {isTurnPlayer && ' 👑'}
+                            </span>
+                            <span className={cn(
+                              "text-xs px-2 py-1 rounded",
+                              isCorrect ? "bg-green-600/30 text-green-300" : "bg-red-600/30 text-red-300"
+                            )}>
+                              {isCorrect ? '✓' : '✗'}
+                            </span>
+                          </div>
+                          <span className="text-purple-300 font-bold">
+                            {earnedPoint ? '+1' : '—'}
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <p className="text-sm text-slate-400 text-center mt-3">
+                    Correct: {currentQuestion.answers[currentQuestion.correctAnswerIndex]}
                   </p>
                 </div>
                 <Button
                   onClick={nextQuestion}
-                  className="w-full mt-4 bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+                  className="w-full bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
                 >
-                  {gameState.currentQuestionIndex < gameState.questions.length - 1 ? 'Next Question' : 'Finish Game'}
+                  {gameState.currentQuestionIndex < QUESTIONS_PER_GAME - 1 ? 'Next Round' : 'Finish Game'}
                 </Button>
               </div>
             )}

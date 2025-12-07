@@ -1,10 +1,12 @@
 import { supabase } from "@/database/supabase"
 import type { Question } from "@/lib/types"
+import { QUIZ_DIFFICULTY_LEVELS } from "@/lib/utils/utils"
 
 export interface AdminQuestionStats {
   totalQuestions: number
   questionsByCategory: Record<string, number>
   difficultyDistribution: Record<string, number>
+  categoryDifficultyMatrix: Record<string, Record<string, number>>  // category -> difficulty level -> count
 }
 
 export async function getAllQuestionsForAdmin(): Promise<Question[]> {
@@ -23,7 +25,7 @@ export async function getAllQuestionsForAdmin(): Promise<Question[]> {
     question: q.question,
     answers: q.answers,
     correctAnswerIndex: q.correct_answer_index,
-    category: q.category,
+    categories: q.categories || [],
     difficulty: q.difficulty
   }))
 }
@@ -35,11 +37,24 @@ export async function getQuestionStats(): Promise<AdminQuestionStats> {
     totalQuestions: questions.length,
     questionsByCategory: {},
     difficultyDistribution: {},
+    categoryDifficultyMatrix: {},
   }
 
   questions.forEach(q => {
-    stats.questionsByCategory[q.category] = (stats.questionsByCategory[q.category] || 0) + 1
     const difficultyLabel = getDifficultyLabel(q.difficulty)
+    
+    // Each question can contribute to multiple category counts
+    q.categories?.forEach(category => {
+      stats.questionsByCategory[category] = (stats.questionsByCategory[category] || 0) + 1
+      
+      // Build category/difficulty matrix
+      if (!stats.categoryDifficultyMatrix[category]) {
+        stats.categoryDifficultyMatrix[category] = {}
+      }
+      stats.categoryDifficultyMatrix[category][difficultyLabel] = 
+        (stats.categoryDifficultyMatrix[category][difficultyLabel] || 0) + 1
+    })
+    
     stats.difficultyDistribution[difficultyLabel] = (stats.difficultyDistribution[difficultyLabel] || 0) + 1
   })
 
@@ -78,9 +93,7 @@ export async function updateQuestion(
 }
 
 function getDifficultyLabel(difficulty: number): string {
-  if (difficulty < 0.2) return 'Easy'
-  if (difficulty < 0.4) return 'Medium-Easy'
-  if (difficulty < 0.6) return 'Medium'
-  if (difficulty < 0.8) return 'Medium-Hard'
-  return 'Hard'
+  const clamped = Math.max(0, Math.min(1, difficulty))
+  const level = QUIZ_DIFFICULTY_LEVELS.find(entry => clamped <= entry.max)
+  return level?.category || 'Unknown'
 }

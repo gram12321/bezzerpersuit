@@ -3,7 +3,8 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/u
 import type { LobbyState, Player } from '@/lib/utils/types'
 import { 
   createLobby, 
-  fillWithAI, 
+  fillWithAI,
+  addSingleAI, 
   togglePlayerReady, 
   canStartGame,
   startLobbyGame,
@@ -44,6 +45,11 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
   const handleFillWithAI = () => {
     if (!lobby) return
     setLobby(fillWithAI(lobby))
+  }
+
+  const handleAddSingleAI = () => {
+    if (!lobby) return
+    setLobby(addSingleAI(lobby))
   }
 
   const handleRemovePlayer = (playerId: string) => {
@@ -199,13 +205,22 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
           )}
 
           {emptySlots > 0 && (
-            <Button 
-              onClick={handleFillWithAI}
-              variant="outline"
-              className="flex-1 border-purple-600 text-purple-400 hover:bg-purple-600/20"
-            >
-              Fill with AI ({emptySlots} slots)
-            </Button>
+            <>
+              <Button 
+                onClick={handleAddSingleAI}
+                variant="outline"
+                className="flex-1 border-purple-600 text-purple-400 hover:bg-purple-600/20"
+              >
+                Add AI Player
+              </Button>
+              <Button 
+                onClick={handleFillWithAI}
+                variant="outline"
+                className="flex-1 border-purple-600 text-purple-400 hover:bg-purple-600/20"
+              >
+                Fill with AI ({emptySlots})
+              </Button>
+            </>
           )}
 
           {isHost && (

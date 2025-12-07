@@ -10,7 +10,7 @@ interface QuestionRow {
   question: string
   answers: string[]
   correct_answer_index: number
-  category: string
+  categories: string[]  // Array of categories
   difficulty: number
   created_at: string
   updated_at: string
@@ -25,7 +25,7 @@ function mapRowToQuestion(row: QuestionRow): Question {
     question: row.question,
     answers: row.answers,
     correctAnswerIndex: row.correct_answer_index,
-    category: row.category as QuestionCategory,
+    categories: row.categories as QuestionCategory[],
     difficulty: createDifficultyScore(row.difficulty)
   }
 }
@@ -47,10 +47,11 @@ export async function getQuestionsByCategory(category: QuestionCategory): Promis
   const { data, error } = await supabase
     .from('questions')
     .select('*')
-    .eq('category', category)
+    .filter('categories', 'cs', `{"${category}"}`)  // PostgreSQL array literal needs quotes around text values
     .order('difficulty', { ascending: true })
 
   if (error) {
+    console.error('Database query error in getQuestionsByCategory:', error)
     throw new Error(`Failed to fetch questions: ${error.message}`)
   }
 
@@ -83,7 +84,10 @@ export async function getQuestionsWithFilters(filters: {
   let query = supabase.from('questions').select('*')
 
   if (filters.category) {
-    query = query.eq('category', filters.category)
+    // Use filter with @> (contains) operator for PostgreSQL array containment
+    // PostgreSQL array literals need quotes around text values: {"value"}
+    const filterValue = `{"${filters.category}"}`
+    query = query.filter('categories', 'cs', filterValue)
   }
   if (filters.minDifficulty !== undefined) {
     query = query.gte('difficulty', filters.minDifficulty)
@@ -95,6 +99,8 @@ export async function getQuestionsWithFilters(filters: {
   const { data, error } = await query
 
   if (error) {
+    console.error('Database query error:', error)
+    console.error('Query filters:', filters)
     throw new Error(`Failed to fetch questions: ${error.message}`)
   }
 
@@ -116,7 +122,7 @@ export async function getQuestionCount(): Promise<number> {
 export async function getQuestionCountByCategory(): Promise<Record<string, number>> {
   const { data, error } = await supabase
     .from('questions')
-    .select('category')
+    .select('categories')
 
   if (error) {
     throw new Error(`Failed to fetch question counts: ${error.message}`)
@@ -124,7 +130,10 @@ export async function getQuestionCountByCategory(): Promise<Record<string, numbe
 
   const counts: Record<string, number> = {}
   data?.forEach(row => {
-    counts[row.category] = (counts[row.category] || 0) + 1
+    // Each question can contribute to multiple category counts
+    row.categories?.forEach((category: string) => {
+      counts[category] = (counts[category] || 0) + 1
+    })
   })
 
   return counts

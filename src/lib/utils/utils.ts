@@ -189,72 +189,36 @@ export function clamp01(value: number): number {
 // QUIZ DIFFICULTY LEVELS
 // ========================================
 
-interface DifficultyLevel {
+export interface DifficultyLevel {
   max: number
   category: string
   description: string
+  colorClasses: string
+  buttonColorClasses: string
 }
 
-const QUIZ_DIFFICULTY_LEVELS: DifficultyLevel[] = [
-  { max: 0.1, category: 'Trivial', description: 'Practically answers itself—even a trivia novice will nail it.' },
-  { max: 0.2, category: 'Easy Pickings', description: 'Low-challenge questions; basic knowledge will get you through.' },
-  { max: 0.3, category: 'Comfort Zone', description: 'Straightforward but requires some actual thinking.' },
-  { max: 0.4, category: 'Brain Tickler', description: 'Demands a bit of focus and depth of knowledge.' },
-  { max: 0.5, category: 'Requires Finesse', description: 'Rewards careful reading and sharp recall.' },
-  { max: 0.6, category: 'Tricky Territory', description: 'Picky questions that catch the unprepared—expect some gotchas.' },
-  { max: 0.7, category: 'Brain Buster', description: 'Demands deep knowledge and you\'ll need to really think hard.' },
-  { max: 0.8, category: 'High-Wire Act', description: 'Success feels like a miracle; one slip and you\'re done.' },
-  { max: 0.9, category: 'PhD-Level Madness', description: 'For masochists only. Experts might even struggle here.' },
+export const QUIZ_DIFFICULTY_LEVELS: DifficultyLevel[] = [
+  { max: 0.1, category: 'Trivial', description: 'Practically answers itself—even a trivia novice will nail it.', colorClasses: 'bg-green-600/30 text-green-300', buttonColorClasses: 'bg-green-600 hover:bg-green-700' },
+  { max: 0.2, category: 'Easy Pickings', description: 'Low-challenge questions; basic knowledge will get you through.', colorClasses: 'bg-green-600/30 text-green-300', buttonColorClasses: 'bg-green-600 hover:bg-green-700' },
+  { max: 0.3, category: 'Comfort Zone', description: 'Straightforward but requires some actual thinking.', colorClasses: 'bg-emerald-600/30 text-emerald-300', buttonColorClasses: 'bg-emerald-600 hover:bg-emerald-700' },
+  { max: 0.4, category: 'Brain Tickler', description: 'Demands a bit of focus and depth of knowledge.', colorClasses: 'bg-emerald-600/30 text-emerald-300', buttonColorClasses: 'bg-emerald-600 hover:bg-emerald-700' },
+  { max: 0.5, category: 'Requires Finesse', description: 'Rewards careful reading and sharp recall.', colorClasses: 'bg-yellow-600/30 text-yellow-300', buttonColorClasses: 'bg-yellow-600 hover:bg-yellow-700' },
+  { max: 0.6, category: 'Tricky Territory', description: 'Picky questions that catch the unprepared—expect some gotchas.', colorClasses: 'bg-yellow-600/30 text-yellow-300', buttonColorClasses: 'bg-yellow-600 hover:bg-yellow-700' },
+  { max: 0.7, category: 'Brain Buster', description: 'Demands deep knowledge and you\'ll need to really think hard.', colorClasses: 'bg-orange-600/30 text-orange-300', buttonColorClasses: 'bg-orange-600 hover:bg-orange-700' },
+  { max: 0.8, category: 'High-Wire Act', description: 'Success feels like a miracle; one slip and you\'re done.', colorClasses: 'bg-orange-600/30 text-orange-300', buttonColorClasses: 'bg-orange-600 hover:bg-orange-700' },
+  { max: 0.9, category: 'PhD-Level Madness', description: 'For masochists only. Experts might even struggle here.', colorClasses: 'bg-red-600/30 text-red-300', buttonColorClasses: 'bg-red-600 hover:bg-red-700' },
+  { max: 1.0, category: 'Impossible', description: 'Reserved for questions that even the experts fear.', colorClasses: 'bg-red-600/30 text-red-300', buttonColorClasses: 'bg-red-600 hover:bg-red-700' },
 ]
-
-/**
- * Get quiz difficulty category and description based on difficulty value (0-1)
- * 
- * @param difficulty Difficulty value (0-1)
- * @returns Object with category name and description
- * 
- * @example
- * getDifficultyLevel(0.2) // { category: 'Easy Pickings', description: '...' }
- * getDifficultyLevel(0.75) // { category: 'Brain Buster', description: '...' }
- */
-export function getDifficultyLevel(difficulty: number): DifficultyLevel {
-  const clamped = clamp01(difficulty)
-  const level = QUIZ_DIFFICULTY_LEVELS.find(entry => clamped <= entry.max)
-  return level || QUIZ_DIFFICULTY_LEVELS[QUIZ_DIFFICULTY_LEVELS.length - 1]
-}
-
-/**
- * Format difficulty score (0-1) as a readable label
- * 
- * @param difficulty Difficulty value (0-1)
- * @returns Readable difficulty category label
- * 
- * @example
- * formatDifficulty(0.2) // "Easy Pickings"
- * formatDifficulty(0.5) // "Requires Finesse"
- * formatDifficulty(0.8) // "High-Wire Act"
- */
-export function formatDifficulty(difficulty: number): string {
-  return getDifficultyLevel(difficulty).category
-}
 
 /**
  * Get color classes for difficulty badge based on difficulty value (0-1)
  * 
  * @param difficulty Difficulty value (0-1)
  * @returns Tailwind color classes for the badge
- * 
- * @example
- * getDifficultyColorClasses(0.2) // "bg-green-600/30 text-green-300"
- * getDifficultyColorClasses(0.5) // "bg-yellow-600/30 text-yellow-300"
- * getDifficultyColorClasses(0.8) // "bg-red-600/30 text-red-300"
+
  */
 export function getDifficultyColorClasses(difficulty: number): string {
   const clamped = clamp01(difficulty)
-  
-  if (clamped < 0.2) return 'bg-green-600/30 text-green-300'
-  if (clamped < 0.4) return 'bg-emerald-600/30 text-emerald-300'
-  if (clamped < 0.6) return 'bg-yellow-600/30 text-yellow-300'
-  if (clamped < 0.8) return 'bg-orange-600/30 text-orange-300'
-  return 'bg-red-600/30 text-red-300'
+  const level = QUIZ_DIFFICULTY_LEVELS.find(entry => clamped <= entry.max)
+  return level?.colorClasses || QUIZ_DIFFICULTY_LEVELS[QUIZ_DIFFICULTY_LEVELS.length - 1].colorClasses
 }

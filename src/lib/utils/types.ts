@@ -2,13 +2,31 @@
  * Global type definitions for Bezzerpersuit
  */
 
-export type QuestionCategory = 
-  | 'Geography, Nature, and Environment'
-  | 'Science and technology'
-  | 'Art, Literature, And Culture'
-  | 'History'
-  | 'Sports, Games, and Entertainment'
+/**
+ * All available quiz categories
+ */
+export const QUIZ_CATEGORIES = [
+  'Geography, Nature, and Environment',
+  'Science and Technology',
+  'Art, Literature, and Culture',
+  'History',
+  'Sports, Games, and Entertainment',
+  'Food and Cooking',
+  'Music and Performing Arts',
+  'Business and Economics',
+  'Mythology and Religion',
+  'General Knowledge'
+] as const
 
+/**
+ * Quiz category type derived from QUIZ_CATEGORIES array
+ */
+export type QuestionCategory = typeof QUIZ_CATEGORIES[number]
+
+/**
+ * Game phase for turn-based gameplay
+ */
+export type GamePhase = 'category-selection' | 'answering' | 'results'
 
 /**
  */
@@ -24,7 +42,7 @@ export interface Question {
   question: string
   answers: string[]
   correctAnswerIndex: number
-  category: QuestionCategory
+  categories: QuestionCategory[]  // Questions can belong to multiple categories
   difficulty: DifficultyScore
 }
 
@@ -38,6 +56,8 @@ export interface Player {
   score: number
   isReady: boolean
   avatar?: string
+  hasAnswered?: boolean
+  selectedAnswer?: number
 }
 
 /**
