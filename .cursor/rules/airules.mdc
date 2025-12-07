@@ -46,7 +46,7 @@ alwaysApply: true
 - **Database Operations**: Use service layer, not direct Supabase calls in components
 
 
-#### MCP Tools Integration
-- **Git Operations**: Use MCP GitHub tools, never terminal git commands
-- **Database Operations**: Use MCP Supabase tools for schema changes and migrations
-- **Version Management**: Update versionlog.md with each significant change
+#### MCP Tools Integration (Disabled)
+- **Git Operations**: User handles git commits manually. AI does not commit.
+- **Database Operations**: User handles schema changes via Dashboard/SQL.
+- **Version Management**: Update versionlog.md manually with each significant change

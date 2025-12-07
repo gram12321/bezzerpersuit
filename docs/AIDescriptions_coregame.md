@@ -95,4 +95,4 @@ Different AI will have different categories of question they excell in
 - **Database**: Supabase (PostgreSQL + Real-time)
 - **Authentication**: Supabase Auth
 - **Deployment**: Vercel
-- **Development Tools**: MCP for Git and Supabase management
+- **Development Tools**: Manual Git & Supabase Dashboard

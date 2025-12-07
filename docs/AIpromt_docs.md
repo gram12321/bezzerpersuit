@@ -16,7 +16,7 @@ None yet - fresh project start
 
 ### **AI Versionlog Update Guidelines**
 - **Version Numbers**: Follow semantic versioning (e.g., 0.001, 0.002, etc.)
-- **Use MCP Tools**: Use Git MCP tools to check commits and create entries
+- **Updates**: Check changes Manually or via available tools before creating entries
 - **Entry Format**: 3-5 lines per version depending on extent of updates
 - **Focus Areas**: Changed files, added/removed functions/functionality
 - **Exclude**: Bug fixes and unused code that was removed
