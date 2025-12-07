@@ -1,5 +1,4 @@
-import { Button } from "@/components/ui"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
+import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
 import { useGameState } from "@/hooks"
 import { cn, formatDifficulty, getDifficultyColorClasses } from "@/lib/utils/utils"
 
@@ -11,7 +10,6 @@ interface GameAreaProps {
 export function GameArea({ gameMode, onExit }: GameAreaProps) {
   const { gameState, startGame, submitAnswer, nextQuestion, endGame } = useGameState()
 
-  // Loading state
   if (gameState.isLoading) {
     return (
       <div className="min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
@@ -28,7 +26,6 @@ export function GameArea({ gameMode, onExit }: GameAreaProps) {
     )
   }
 
-  // Error state
   if (gameState.error) {
     return (
       <div className="min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
@@ -65,8 +62,7 @@ export function GameArea({ gameMode, onExit }: GameAreaProps) {
     )
   }
 
-  // Game hasn't started yet
-  if (!gameState.isGameActive && gameState.currentQuestionIndex === 0) {
+  if (!gameState.isGameActive && gameState.questions.length === 0) {
     return (
       <div className="min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
         <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm max-w-2xl w-full">
@@ -108,7 +104,6 @@ export function GameArea({ gameMode, onExit }: GameAreaProps) {
     )
   }
 
-  // Game over
   if (!gameState.isGameActive) {
     return (
       <div className="min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">

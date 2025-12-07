@@ -30,10 +30,6 @@ function mapRowToQuestion(row: QuestionRow): Question {
   }
 }
 
-/**
- * CRUD Operations for Questions Table
- */
-
 export async function getAllQuestions(): Promise<Question[]> {
   const { data, error } = await supabase
     .from('questions')

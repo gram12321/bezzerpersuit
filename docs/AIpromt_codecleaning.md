@@ -5,11 +5,15 @@ We have implemented comprehensive systems across multiple files and may need cle
 
 ### **Cleanup Targets**
 - **Illogical Code Placement**: Functions/services in wrong directories or files
+    - ** Check for business logic in UI components should be in service\
+    - ** check for CRUD operation in service files - should be in database\ files
 - **Duplicate Code**: Repeated functionality across multiple files
+    Also check for very similiar code, that could be refactored without much loss
 - **Unnecessary Code**: Dead code, unused imports, placeholder functions
 - **Redundant Code**: Multiple implementations of the same functionality
 - **Inefficient Code**: Performance bottlenecks, unnecessary database calls, poor algorithms
 - **Excessive Comments**: Overly descriptive comments that state the obvious, Remove obvious comments that restate what the code does, keep only business logic explanations and non-obvious technical details. Or comments written to/from Humans
+
 
 ### **Specific Areas to Review**
 - **Services**: `src/lib/services/` - Check for duplicate functionality across user/, sales/, wine/, core/
@@ -17,7 +21,8 @@ We have implemented comprehensive systems across multiple files and may need cle
 - **Hooks**: `src/hooks/` - Consolidate similar state management patterns
 - **Utils**: `src/lib/utils/` - Remove duplicate helper functions
 - **Types**: `src/lib/types/` - Consolidate similar interfaces
-- **Constants**: `src/lib/constants/` - Remove unused constants and consolidate related data
+- **Constants**: `src/lib/constants/` - Remove unused constants and consolidate related data refactor to constants\ most constant data should be in constant\ 
+
 
 ### **Cleanup Goals**
 - **Improve Readability**: Clear code structure and naming conventions
@@ -25,6 +30,7 @@ We have implemented comprehensive systems across multiple files and may need cle
 - **Maintain Functionality**: Ensure all features continue to work after cleanup
 - **Reduce Complexity**: Simplify overly complex implementations
 - **Better Organization**: Logical file structure and import patterns
+
 
 ### **Cleanup Process**
 1. **Identify Issues**: Scan for duplicate, unused, or inefficient code
@@ -37,3 +43,6 @@ We have implemented comprehensive systems across multiple files and may need cle
 1. Fix import/export to use barrel export
 2. Fix import one line per file
 3, Fix export use index.ts barrel export (use * wildcards) for all exports. 
+
+End all Cleaning respons by adding a comment to the PR with the following:
+Reduced/removed from x lines to ~Y lines / ~ line reduction

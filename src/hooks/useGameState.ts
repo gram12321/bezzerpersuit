@@ -29,12 +29,10 @@ export function useGameState() {
     questions: []
   })
 
-  // Initialize game
   const startGame = useCallback(async () => {
     setGameState(prev => ({ ...prev, isLoading: true, error: null }))
     
     try {
-      // Fetch random questions from Supabase
       const questions = await fetchRandomQuestions(8)
       
       setGameState({
@@ -60,14 +58,12 @@ export function useGameState() {
     }
   }, [])
 
-  // Timer countdown
   useEffect(() => {
     if (!gameState.isGameActive || gameState.showResult) return
 
     const timer = setInterval(() => {
       setGameState(prev => {
         if (prev.timeRemaining <= 1) {
-          // Time's up - move to next question
           return {
             ...prev,
             timeRemaining: 0,
@@ -82,12 +78,10 @@ export function useGameState() {
     return () => clearInterval(timer)
   }, [gameState.isGameActive, gameState.showResult, gameState.currentQuestionIndex])
 
-  // Submit answer
   const submitAnswer = useCallback((answerIndex: number) => {
     setGameState(prev => {
       const currentQuestion = prev.questions[prev.currentQuestionIndex]
       const isCorrect = answerIndex === currentQuestion.correctAnswerIndex
-      // Use game service for point calculation
       const points = isCorrect ? (prev.timeRemaining * 10) : 0
 
       return {
@@ -100,7 +94,6 @@ export function useGameState() {
     })
   }, [])
 
-  // Next question
   const nextQuestion = useCallback(() => {
     setGameState(prev => {
       const isLastQuestion = prev.currentQuestionIndex >= prev.questions.length - 1
@@ -123,7 +116,6 @@ export function useGameState() {
     })
   }, [])
 
-  // End game
   const endGame = useCallback(() => {
     setGameState(prev => ({
       ...prev,

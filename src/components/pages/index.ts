@@ -1,2 +1,2 @@
-export { GameArea } from './GameArea'
-export { AdminDashboard } from './AdminDashboard'
+export * from './GameArea'
+export * from './AdminDashboard'

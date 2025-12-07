@@ -1,11 +1,8 @@
 import { useEffect, useState } from "react"
-import { Button } from "@/components/ui"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
-import { loadAllQuestionsForAdmin, loadQuestionStats, removeQuestion } from "@/lib/services/adminService"
-import { formatDifficulty, getDifficultyColorClasses } from "@/lib/utils/utils"
-import { cn } from "@/lib/utils/utils"
+import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
+import { getAllQuestionsForAdmin, getQuestionStats, removeQuestion, type AdminQuestionStats } from "@/lib/services/adminService"
+import { cn, formatDifficulty, getDifficultyColorClasses } from "@/lib/utils/utils"
 import type { Question } from "@/lib/utils/types"
-import type { AdminQuestionStats } from "@/database/adminDB"
 
 interface AdminDashboardProps {
   onExit: () => void
@@ -18,15 +15,14 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
   const [error, setError] = useState<string | null>(null)
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null)
 
-  // Load data on mount
   useEffect(() => {
     const loadData = async () => {
       try {
         setIsLoading(true)
         setError(null)
         const [questionsData, statsData] = await Promise.all([
-          loadAllQuestionsForAdmin(),
-          loadQuestionStats(),
+          getAllQuestionsForAdmin(),
+          getQuestionStats(),
         ])
         setQuestions(questionsData)
         setStats(statsData)
@@ -49,9 +45,9 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
       const updatedQuestions = await removeQuestion(questionId)
       setQuestions(updatedQuestions)
       setSelectedQuestion(null)
-      
+
       // Refresh stats
-      const newStats = await loadQuestionStats()
+      const newStats = await getQuestionStats()
       setStats(newStats)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete question')
