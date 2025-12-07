@@ -1,9 +1,44 @@
+import { useState } from "react"
 import { Button } from "@/components/ui"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui"
+import { GameArea, AdminDashboard } from "@/components/pages"
+
+type GameMode = 'solo' | 'multiplayer' | null
+type AppPage = 'home' | 'game' | 'admin'
+
+interface AppState {
+  currentPage: AppPage
+  gameMode: GameMode
+}
 
 function App() {
+  const [appState, setAppState] = useState<AppState>({
+    currentPage: 'home',
+    gameMode: null,
+  })
+
+  // Show game area
+  if (appState.currentPage === 'game' && appState.gameMode) {
+    return (
+      <GameArea 
+        gameMode={appState.gameMode} 
+        onExit={() => setAppState({ currentPage: 'home', gameMode: null })} 
+      />
+    )
+  }
+
+  // Show admin dashboard
+  if (appState.currentPage === 'admin') {
+    return (
+      <AdminDashboard 
+        onExit={() => setAppState({ currentPage: 'home', gameMode: null })} 
+      />
+    )
+  }
+
+  // Show home page
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
       <div className="max-w-4xl w-full space-y-8">
         {/* Header */}
         <div className="text-center space-y-4">
@@ -40,8 +75,11 @@ function App() {
                   <span>Improve your ranking</span>
                 </div>
               </div>
-              <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
-                Start Practice
+              <Button 
+                onClick={() => setAppState({ currentPage: 'game', gameMode: 'solo' })}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                Single Player
               </Button>
             </CardContent>
           </Card>
@@ -69,7 +107,10 @@ function App() {
                   <span>Earn achievements</span>
                 </div>
               </div>
-              <Button className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white">
+              <Button 
+                onClick={() => setAppState({ currentPage: 'game', gameMode: 'multiplayer' })}
+                className="w-full bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+              >
                 Find Match
               </Button>
             </CardContent>
@@ -97,12 +138,19 @@ function App() {
         </Card>
 
         {/* Auth Buttons */}
-        <div className="flex gap-4 justify-center">
+        <div className="flex gap-4 justify-center flex-wrap">
           <Button variant="outline" className="border-slate-600 text-white hover:bg-slate-800">
             Sign In
           </Button>
           <Button variant="outline" className="border-slate-600 text-white hover:bg-slate-800">
             Sign Up
+          </Button>
+          <Button 
+            onClick={() => setAppState({ currentPage: 'admin', gameMode: null })}
+            className="border-slate-600 text-white hover:bg-slate-800 bg-slate-800/30"
+            variant="outline"
+          >
+            Admin Dashboard
           </Button>
         </div>
       </div>

@@ -39,42 +39,63 @@ return (
 ### 🧠 Development Patterns
 
 **CRITICAL RULES FOR AI AGENTS:**
-- **NO BACKWARDS COMPATIBILITY**: We are in dev phase. Database will be reset if compatibility issues arise - no migrations needed
-- **ALWAYS use barrel exports**: `@/components/ui`, `@/hooks`, `@/lib/services`, `@/lib/utils`, `@/lib/constants`
+- **NO BACKWARDS COMPATIBILITY**: Dev phase - database resets acceptable, no migrations needed
+- **ALWAYS use barrel exports**: `@/components/ui`, `@/hooks`, `@/lib/services`, `@/lib/utils`, `@/lib/constants`, `@/database`, `@/pages`
 - **ALWAYS use custom hooks**: For state management and data loading
 - **ALWAYS use shared interfaces**: Consistent TypeScript interfaces across the app
-- **ALWAYS use service exports**: Game state management through services
 - **Business logic in services**: Never put calculations in components
+- **NO business logic in pages/components**: UI presentation only
+- **NO direct database access from UI**: Always go through services → database layer
 - **Reactive updates**: Services trigger global updates, components auto-refresh
+
+### 🏗️ **Architecture Layers (STRICT SEPARATION)**
+
+```
+User Interaction → Pages (UI) → Hooks (State) → Services (Logic) → Database (CRUD) → Supabase
+```
+
+**Layer Responsibilities:**
+1. **Pages** (`src/pages/`) - UI only, uses hooks, NO business logic
+2. **Hooks** (`src/hooks/`) - React state management, uses services
+3. **Services** (`src/lib/services/`) - Business logic, uses database layer
+4. **Database** (`src/database/`) - CRUD operations only, Supabase queries
+
+**Import Rules:**
+- ✅ Pages → Hooks → Services → Database
+- ❌ Pages → Services (use hooks instead)
+- ❌ Pages → Database (use hooks instead)
+- ❌ Services → Hooks (services must be pure)
+
+**When Adding Features:**
+1. SQL migration in `database/migrations/`
+2. CRUD in `src/database/`
+3. Business logic in `src/lib/services/`
+4. State management in `src/hooks/`
+5. UI in `src/pages/`
 
 **Constants Directory (`@/lib/constants`):** Centralized configuration and data via barrel exports:
 - Import from `@/lib/constants` (barrel exports all config)
 - Game constants for quiz mechanics, scoring, etc.
 
-**MCP Integration:** (Setup in progress)
-- Git operations via MCP GitHub tools
-- Supabase database management via MCP Supabase tools
-- Configuration in `.cursor/mcp.json`
+**MCP Integration:** (Disabled/Postponed)
+- MCP tools could not be configured at this stage.
+- **Git Operations**: User handles git manually. Terminal git use for updating versionlog.md
+- **Database Operations**: User handles Supabase via Dashboard or SQL Editor.
 
 ### 🗄️ **Database Setup**
 
-**Development Database:**
-- Supabase project: TBD
-- Environment: `.env.local` (gitignored)
-- Management: MCP tools (`mcp_supabase-dev_*`) for agentic operations
-- Usage: `localhost` with frequent resets during development
+**Development & Production:**
+- Supabase project is set up.
+- Environment: `.env.local` configured with `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`
+- Management: SQL migrations in `database/migrations/` (run via Supabase Dashboard SQL Editor)
 
-**Production Database:**
-- Supabase project: TBD
-- Environment: Vercel Dashboard → Environment Variables
-- Management: SQL migrations via `migrations/`
-- Usage: Deployed on Vercel
+**Running Migrations:**
+1. Go to Supabase Dashboard → SQL Editor
+2. Copy contents from `database/migrations/001_create_questions_table.sql`
+3. Run the script
 
-**Migration Process:**
-1. Update dev database via MCP tools
-2. Export schema changes to migration files
-3. Apply migrations to production database
-4. Verify deployment works
+**Current Schema:**
+- `questions` table - Quiz questions with categories, difficulty (0-1), answers, RLS enabled
 
 ### 🔐 Row Level Security & Access Controls
 
@@ -108,7 +129,7 @@ return (
 ### 1. Quiz System (Planned)
 - **Question Management**: Categories, difficulty levels, multiple choice, true/false
 - **Quiz Sessions**: Create and join games
-- **Scoring**: Points, time bonuses, streak multipliers
+- **Scoring**: Points, streak multipliers
 - **Real-time Gameplay**: Synchronized questions across players
 
 ### 2. Multiplayer (Planned)
@@ -121,13 +142,12 @@ return (
 - **Experience System**: Level up through gameplay
 - **Achievements**: Track various accomplishments
 - **Leaderboards**: Global and category-specific rankings
-- **Player Stats**: Performance metrics and history
+- **Player Stats**: Track player statistics and history
 
 ### 4. NPC Opponents (Planned)
 - **AI Difficulty Levels**: Easy, Medium, Hard
-- **Realistic Behavior**: Variable response timing and accuracy
+- **Realistic Behavior**: Variable response and accuracy
 - **Training Mode**: Practice without affecting stats
-- **Adaptive Challenge**: AI adjusts to player performance
 
 ### 5. Social Features (Delayed)
 - **Friends System**: Add and challenge friends
@@ -148,76 +168,10 @@ return (
 
 ## 📋 **Project Structure**
 
-```
-bezzerpersuit/
-├── .agent/
-│   └── rules/
-│       └── airulesantigravity.md
-├── .cursor/
-│   └── rules/
-│       └── airules.mdc
-├── docs/
-│   ├── AIDescriptions_coregame.md
-│   ├── AIpromt_codecleaning.md
-│   ├── AIpromt_docs.md
-│   ├── AIpromt_newpromt.md
-│   ├── PROJECT_INFO.md
-│   └── versionlog.md
-├── src/
-│   ├── components/
-│   │   ├── layout/
-│   │   ├── pages/
-│   │   └── ui/
-│   ├── database/
-│   ├── hooks/
-│   ├── lib/
-│   │   ├── constants/
-│   │   ├── services/
-│   │   │   ├── core/
-│   │   │   ├── quiz/
-│   │   │   └── user/
-│   │   ├── types/
-│   │   └── utils/
-│   └── pages/
-├── .env.local (gitignored)
-├── package.json
-├── tsconfig.json
-└── vite.config.ts
-```
-
-## 🚀 **Getting Started**
-
-### Prerequisites
-- Node.js 18+ 
-- npm or pnpm
-- Supabase account (for database)
-- Vercel account (for deployment)
-
-### Installation (To be completed)
-```bash
-# Install dependencies
-npm install
-
-# Set up environment variables
-cp .env.example .env.local
-# Add your Supabase credentials to .env.local
-
-# Start development server
-npm run dev
-```
-
-### Tech Stack Setup Checklist
-- [x] Initialize Vite + React + TypeScript project
-- [x] Install and configure Tailwind CSS
-- [x] Install and configure ShadCN UI
-- [ ] Set up Supabase client
-- [ ] Configure MCP tools for Git
-- [ ] Configure MCP tools for Supabase
-- [ ] Set up basic project structure
-- [ ] Create initial database schema
-- [ ] Implement authentication flow
+See `docs/PROJECT_INFO.md` for detailed project structure and file organization.
 
 ---
+
 
 ## 📖 **Documentation**
 

@@ -39,15 +39,22 @@ Different AI will have different categories of question they excell in
 
 ### 6. Player Interface (In Progress)
 **Core Components**:
-- **Navigation**: `src/components/layout/Header.tsx` - Time display, player menu
-- **Player Menu**: Dropdown with Profile, Settings, Admin Dashboard, Achievements, Logout
-- **Notification System**: `src/lib/services/core/notificationService.ts` - Centralized notification system
-- **Admin Dashboard**: `src/components/pages/AdminDashboard.tsx` - Data management tools (Planned)
-- **Settings**: `src/components/pages/Settings.tsx` - User preferences and settings (Planned)
-- **Profile**: `src/components/pages/Profile.tsx` - Player stats and customization (Planned)
-- **Achievements**: `src/components/pages/Achievements.tsx` - Achievement tracking system (Planned)
-- **Leaderboards**: `src/components/pages/Leaderboards.tsx` - Global ranking system (Planned)
-- **Login System**: `src/components/pages/Login.tsx` - Authentication and user management (Planned)
+- **Landing Page**: `App.tsx` - Hero, game mode cards, auth buttons
+- **Game Area**: `src/pages/GameArea.tsx` - Quiz gameplay UI
+- **Navigation**: Planned - Header with player menu
+- **Admin Dashboard**: Planned - Data management
+- **Settings**: Planned - User preferences
+- **Profile**: Planned - Player stats
+- **Achievements**: Planned - Achievement tracking
+- **Leaderboards**: Planned - Global rankings
+- **Login System**: Planned - Authentication
+
+**UI Design System**:
+- **Framework**: ShadCN UI + Tailwind CSS (NO custom CSS)
+- **Theme**: Dark gradients (slate-900 → purple-900)
+- **Colors**: Purple (#9333ea) and pink (#db2777) accents
+- **Effects**: Glassmorphism, hover animations, backdrop blur
+- **Components**: Button, Card, CardHeader, CardTitle, CardDescription, CardContent
 
 ## 🎯 **Implementation Status Summary**
 
