@@ -1,9 +1,8 @@
 ---
-alwaysApply: true
+trigger: always_on
 ---
 
-
-# AI Instructions for Bezzerpersuit
+# AI Instructions for bezzerpersuit
 
 ## AI Code Generation Principles
 
@@ -22,7 +21,7 @@ alwaysApply: true
 - Place imports at the top of each file; no inline imports.
 - **ALWAYS use barrel exports/imports**: Use `@/components/ui`, `@/hooks`, `@/lib/services`, `@/lib/utils` for imports
 - **ALWAYS use custom hooks**: Use `useLoadingState()`, `useGameStateWithData()`, `useGameState()` for state management
-- **ALWAYS use shared interfaces**: Use `PageProps`, `NavigationProps`, `PlayerProps` from `@/components/UItypes`
+- **ALWAYS use shared interfaces**: Use `PageProps`, `NavigationProps`, `CompanyProps` from `@/components/UItypes`
 
 ### ✅ Key AI Code & Architecture Rules
 
@@ -31,7 +30,7 @@ alwaysApply: true
 - **Styling**: Use **Tailwind CSS** and ShadCN UI exclusively. No Bootstrap or custom CSS
 - **Data Integration**: Frontend reads data from **Supabase database** via real-time subscriptions
 - **Components**: Use ShadCN-style components in `src/components/ui/`
-- **Pages**: `src/pages/` (Quiz, Lobby, Leaderboard, Profile, etc.)
+- **Pages**: `src/pages/` (Dashboard, finance, vineyard, sales ect. )
 
 #### Database & Storage
 - **Supabase**: PostgreSQL database with real-time subscriptions
@@ -41,7 +40,7 @@ alwaysApply: true
 
 #### Service Layer Architecture
 - **Business Logic**: Never put calculations in components - use services
-- **Service Organization**: `src/lib/services/` organized by domain (user/, quiz/, core/)
+- **Service Organization**: `src/lib/services/` organized by domain (user/, core/)
 - **Reactive Updates**: Services trigger global updates, components auto-refresh
 - **Database Operations**: Use service layer, not direct Supabase calls in components
 
