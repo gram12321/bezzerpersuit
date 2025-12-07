@@ -12,6 +12,9 @@ interface QuestionRow {
   correct_answer_index: number
   categories: string[]  // Array of categories
   difficulty: number
+  correct_count: number
+  incorrect_count: number
+  recent_history: boolean[]
   created_at: string
   updated_at: string
 }
@@ -150,6 +153,52 @@ export async function updateQuestionDifficultyById(
 
   if (error) {
     throw new Error(`Failed to update question difficulty: ${error.message}`)
+  }
+}
+
+export async function updateQuestionStats(
+  questionId: string,
+  newDifficulty: number,
+  correctCount: number,
+  incorrectCount: number,
+  recentHistory: boolean[]
+): Promise<void> {
+  const { error } = await supabase
+    .from('questions')
+    .update({
+      difficulty: newDifficulty,
+      correct_count: correctCount,
+      incorrect_count: incorrectCount,
+      recent_history: recentHistory
+    })
+    .eq('id', questionId)
+
+  if (error) {
+    throw new Error(`Failed to update question stats: ${error.message}`)
+  }
+}
+
+export async function getQuestionStats(questionId: string): Promise<{
+  difficulty: number
+  correct_count: number
+  incorrect_count: number
+  recent_history: boolean[]
+}> {
+  const { data, error } = await supabase
+    .from('questions')
+    .select('difficulty, correct_count, incorrect_count, recent_history')
+    .eq('id', questionId)
+    .single()
+
+  if (error) {
+    throw new Error(`Failed to fetch question stats: ${error.message}`)
+  }
+  
+  return {
+    difficulty: data.difficulty,
+    correct_count: data.correct_count || 0,
+    incorrect_count: data.incorrect_count || 0,
+    recent_history: data.recent_history || []
   }
 }
 

@@ -26,11 +26,14 @@ export async function getAllQuestionsForAdmin(): Promise<Question[]> {
     answers: q.answers,
     correctAnswerIndex: q.correct_answer_index,
     categories: q.categories || [],
-    difficulty: q.difficulty
+    difficulty: q.difficulty,
+    correctCount: q.correct_count || 0,
+    incorrectCount: q.incorrect_count || 0,
+    recentHistory: q.recent_history || []
   }))
 }
 
-export async function getQuestionStats(): Promise<AdminQuestionStats> {
+export async function getAdminQuestionStats(): Promise<AdminQuestionStats> {
   const questions = await getAllQuestionsForAdmin()
 
   const stats: AdminQuestionStats = {

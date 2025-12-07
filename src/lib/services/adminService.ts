@@ -6,4 +6,4 @@ export async function removeQuestion(questionId: string): Promise<Question[]> {
   return await getAllQuestionsForAdmin()
 }
 
-export { getAllQuestionsForAdmin, getQuestionStats, updateQuestion, type AdminQuestionStats } from "@/database/adminDB"
+export { getAllQuestionsForAdmin, getAdminQuestionStats, updateQuestion, type AdminQuestionStats } from "@/database/adminDB"

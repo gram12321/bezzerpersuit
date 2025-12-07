@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Question, Player, LobbyState, GamePhase, QuestionCategory, DifficultyScore } from '@/lib/utils/types'
 import { QUIZ_CATEGORIES } from '@/lib/utils/types'
-import { fetchRandomQuestions } from '@/lib/services'
+import { fetchRandomQuestions, calculateAdaptiveDifficulty } from '@/lib/services'
+import { updateQuestionStats, getQuestionStats } from '@/database'
 import { QUESTIONS_PER_GAME, SELECTION_TIME_LIMIT } from '@/lib/constants'
 
 export interface GameState {
@@ -252,6 +253,43 @@ export function useGameState(initialLobby?: LobbyState) {
             return { ...p, score: p.score + earnedPoints }
           }
         })
+
+        // Update question difficulty based on HUMAN player performance only (exclude AI)
+        const humanPlayers = scoredPlayers.filter(p => !p.isAI)
+        const humanPlayersCorrect = humanPlayers.filter(p => p.selectedAnswer === currentQuestion.correctAnswerIndex).length
+        const humanPlayersIncorrect = humanPlayers.length - humanPlayersCorrect
+
+        if (humanPlayers.length > 0) {
+          // Update difficulty using adaptive algorithm (fire and forget - don't block UI)
+          getQuestionStats(currentQuestion.id)
+            .then(stats => {
+              const update = calculateAdaptiveDifficulty(
+                stats.difficulty,
+                {
+                  correct_count: stats.correct_count,
+                  incorrect_count: stats.incorrect_count,
+                  recent_history: stats.recent_history
+                },
+                humanPlayersCorrect,
+                humanPlayersIncorrect
+              )
+
+              const newCorrectCount = stats.correct_count + humanPlayersCorrect
+              const newIncorrectCount = stats.incorrect_count + humanPlayersIncorrect
+              const newHistory = [...stats.recent_history, ...Array(humanPlayersCorrect).fill(true), ...Array(humanPlayersIncorrect).fill(false)].slice(-10)
+
+              return updateQuestionStats(
+                currentQuestion.id,
+                update.newDifficulty,
+                newCorrectCount,
+                newIncorrectCount,
+                newHistory
+              )
+            })
+            .catch(error => {
+              console.error('Failed to update question difficulty:', error)
+            })
+        }
 
         return {
           ...prev,

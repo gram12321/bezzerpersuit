@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
-import { getAllQuestionsForAdmin, getQuestionStats, removeQuestion, type AdminQuestionStats } from "@/lib/services/adminService"
+import { getAllQuestionsForAdmin, getAdminQuestionStats, removeQuestion, type AdminQuestionStats } from "@/lib/services/adminService"
+import { calculateConfidence } from "@/lib/services"
 import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS } from "@/lib/utils/utils"
 import type { Question } from "@/lib/utils/types"
 
@@ -22,7 +23,7 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
         setError(null)
         const [questionsData, statsData] = await Promise.all([
           getAllQuestionsForAdmin(),
-          getQuestionStats(),
+          getAdminQuestionStats(),
         ])
         setQuestions(questionsData)
         setStats(statsData)
@@ -47,7 +48,7 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
       setSelectedQuestion(null)
 
       // Refresh stats
-      const newStats = await getQuestionStats()
+      const newStats = await getAdminQuestionStats()
       setStats(newStats)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete question')
@@ -171,7 +172,7 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
                             return (
                               <td key={level.category} className="text-center p-2">
                                 <span className={cn(
-                                  "inline-block w-8 h-8 rounded flex items-center justify-center font-semibold",
+                                  "inline-block w-8 h-8 rounded items-center justify-center font-semibold",
                                   count > 0 ? "bg-purple-600/30 text-purple-300" : "bg-slate-700/20 text-slate-600"
                                 )}>
                                   {count || '−'}
@@ -211,6 +212,7 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
                       <th className="text-left p-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Question</th>
                       <th className="text-left p-3 text-xs font-semibold text-slate-400 uppercase tracking-wider w-32">Category</th>
                       <th className="text-left p-3 text-xs font-semibold text-slate-400 uppercase tracking-wider w-28">Difficulty</th>
+                      <th className="text-center p-3 text-xs font-semibold text-slate-400 uppercase tracking-wider w-24">Stats</th>
                       <th className="text-center p-3 text-xs font-semibold text-slate-400 uppercase tracking-wider w-20">Actions</th>
                     </tr>
                   </thead>
@@ -280,6 +282,26 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
                             <span className="text-xs text-slate-500 text-center font-mono">
                               {question.difficulty.toFixed(3)}
                             </span>
+                          </div>
+                        </td>
+                        <td className="p-3">
+                          <div className="flex flex-col gap-1 text-xs text-slate-300">
+                            <div className="flex items-center justify-center gap-2">
+                              <span>✓ {question.correctCount || 0}</span>
+                              <span>✗ {question.incorrectCount || 0}</span>
+                            </div>
+                            <div className="text-center text-slate-400 font-mono">
+                              {(() => {
+                                const total = (question.correctCount || 0) + (question.incorrectCount || 0)
+                                if (total === 0) return "−"
+                                const conf = calculateConfidence(
+                                  total,
+                                  question.recentHistory || [],
+                                  question.difficulty
+                                )
+                                return `${(conf * 100).toFixed(0)}%`
+                              })()}
+                            </div>
                           </div>
                         </td>
                         <td className="p-3">

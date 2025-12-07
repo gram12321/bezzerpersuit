@@ -44,6 +44,9 @@ export interface Question {
   correctAnswerIndex: number
   categories: QuestionCategory[]  // Questions can belong to multiple categories
   difficulty: DifficultyScore
+  correctCount?: number
+  incorrectCount?: number
+  recentHistory?: boolean[]
 }
 
 /**
