@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { Question } from '@/lib/utils/types'
+import type { Question, Player, LobbyState } from '@/lib/utils/types'
 import { fetchRandomQuestions } from '@/lib/services'
+import { processAIAnswers } from '@/lib/ai'
 
 export interface GameState {
   currentQuestionIndex: number
@@ -13,9 +14,11 @@ export interface GameState {
   showResult: boolean
   isCorrect: boolean
   questions: Question[]
+  players: Player[]
+  currentPlayerId: string
 }
 
-export function useGameState() {
+export function useGameState(initialLobby?: LobbyState) {
   const [gameState, setGameState] = useState<GameState>({
     currentQuestionIndex: 0,
     score: 0,
@@ -26,26 +29,35 @@ export function useGameState() {
     selectedAnswer: null,
     showResult: false,
     isCorrect: false,
-    questions: []
+    questions: [],
+    players: initialLobby?.players || [],
+    currentPlayerId: initialLobby?.players.find(p => !p.isAI)?.id || ''
   })
 
-  const startGame = useCallback(async () => {
+  const startGame = useCallback(async (lobby?: LobbyState) => {
     setGameState(prev => ({ ...prev, isLoading: true, error: null }))
     
     try {
       const questions = await fetchRandomQuestions(8)
       
-      setGameState({
-        currentQuestionIndex: 0,
-        score: 0,
-        timeRemaining: 15,
-        isGameActive: true,
-        isLoading: false,
-        error: null,
-        selectedAnswer: null,
-        showResult: false,
-        isCorrect: false,
-        questions
+      setGameState(prev => {
+        const players = lobby?.players || prev.players
+        const currentPlayerId = lobby?.players.find(p => !p.isAI)?.id || prev.currentPlayerId
+        
+        return {
+          currentQuestionIndex: 0,
+          score: 0,
+          timeRemaining: 15,
+          isGameActive: true,
+          isLoading: false,
+          error: null,
+          selectedAnswer: null,
+          showResult: false,
+          isCorrect: false,
+          questions,
+          players,
+          currentPlayerId
+        }
       })
     } catch (error) {
       console.error('Failed to load questions:', error)
@@ -64,11 +76,33 @@ export function useGameState() {
     const timer = setInterval(() => {
       setGameState(prev => {
         if (prev.timeRemaining <= 1) {
+          // Auto-submit answer A (index 0) when time runs out
+          const currentQuestion = prev.questions[prev.currentQuestionIndex]
+          const isCorrect = 0 === currentQuestion.correctAnswerIndex
+          const points = isCorrect ? 1 : 0
+
+          // Update current player's score
+          const updatedPlayers = prev.players.map(p =>
+            p.id === prev.currentPlayerId
+              ? { ...p, score: p.score + points }
+              : p
+          )
+
+          // Process AI answers
+          const playersWithAIAnswers = processAIAnswers(
+            updatedPlayers,
+            prev.currentPlayerId,
+            currentQuestion
+          )
+
           return {
             ...prev,
             timeRemaining: 0,
+            selectedAnswer: 0,
             showResult: true,
-            isCorrect: false
+            isCorrect,
+            score: prev.score + points,
+            players: playersWithAIAnswers
           }
         }
         return { ...prev, timeRemaining: prev.timeRemaining - 1 }
@@ -82,14 +116,29 @@ export function useGameState() {
     setGameState(prev => {
       const currentQuestion = prev.questions[prev.currentQuestionIndex]
       const isCorrect = answerIndex === currentQuestion.correctAnswerIndex
-      const points = isCorrect ? (prev.timeRemaining * 10) : 0
+      const points = isCorrect ? 1 : 0
+
+      // Update current player's score
+      const updatedPlayers = prev.players.map(p =>
+        p.id === prev.currentPlayerId
+          ? { ...p, score: p.score + points }
+          : p
+      )
+
+      // Process AI answers
+      const playersWithAIAnswers = processAIAnswers(
+        updatedPlayers,
+        prev.currentPlayerId,
+        currentQuestion
+      )
 
       return {
         ...prev,
         selectedAnswer: answerIndex,
         showResult: true,
         isCorrect,
-        score: prev.score + points
+        score: prev.score + points,
+        players: playersWithAIAnswers
       }
     })
   }, [])

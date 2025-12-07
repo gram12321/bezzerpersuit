@@ -23,7 +23,7 @@ export interface GameAnswer {
  */
 export function calculatePoints(isCorrect: boolean): number {
   if (!isCorrect) return 0
-  return 100
+  return 1
 }
 
 /**

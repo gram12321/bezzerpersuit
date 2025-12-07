@@ -1,28 +1,38 @@
 import { useState } from "react"
 import { Button } from "@/components/ui"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui"
-import { GameArea, AdminDashboard } from "@/components/pages"
+import { GameArea, AdminDashboard, LobbyArea } from "@/components/pages"
+import type { LobbyState } from '@/lib/utils/types'
 
-type GameMode = 'solo' | 'multiplayer' | null
-type AppPage = 'home' | 'game' | 'admin'
+type AppPage = 'home' | 'lobby' | 'game' | 'admin'
 
 interface AppState {
   currentPage: AppPage
-  gameMode: GameMode
+  currentLobby: LobbyState | null
 }
 
 function App() {
   const [appState, setAppState] = useState<AppState>({
     currentPage: 'home',
-    gameMode: null,
+    currentLobby: null,
   })
 
   // Show game area
-  if (appState.currentPage === 'game' && appState.gameMode) {
+  if (appState.currentPage === 'game' && appState.currentLobby) {
     return (
       <GameArea 
-        gameMode={appState.gameMode} 
-        onExit={() => setAppState({ currentPage: 'home', gameMode: null })} 
+        lobby={appState.currentLobby} 
+        onExit={() => setAppState({ currentPage: 'home', currentLobby: null })} 
+      />
+    )
+  }
+
+  // Show lobby
+  if (appState.currentPage === 'lobby') {
+    return (
+      <LobbyArea 
+        onStartGame={(lobby) => setAppState({ currentPage: 'game', currentLobby: lobby })}
+        onExit={() => setAppState({ currentPage: 'home', currentLobby: null })} 
       />
     )
   }
@@ -31,7 +41,7 @@ function App() {
   if (appState.currentPage === 'admin') {
     return (
       <AdminDashboard 
-        onExit={() => setAppState({ currentPage: 'home', gameMode: null })} 
+        onExit={() => setAppState({ currentPage: 'home', currentLobby: null })} 
       />
     )
   }
@@ -50,72 +60,41 @@ function App() {
           </p>
         </div>
 
-        {/* Game Mode Cards */}
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Single Player */}
-          <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm hover:bg-slate-800/70 transition-all hover:scale-105">
-            <CardHeader>
-              <CardTitle className="text-2xl text-white">Solo Practice</CardTitle>
-              <CardDescription className="text-purple-200">
-                Play against AI opponents and sharpen your skills
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2 text-sm text-slate-300">
-                <div className="flex items-center gap-2">
-                  <span className="text-purple-400">✓</span>
-                  <span>Multiple difficulty levels</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-purple-400">✓</span>
-                  <span>Practice without pressure</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-purple-400">✓</span>
-                  <span>Improve your ranking</span>
-                </div>
+        {/* Play Card */}
+        <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm hover:bg-slate-800/70 transition-all hover:scale-105">
+          <CardHeader>
+            <CardTitle className="text-3xl text-white text-center">Play Quiz</CardTitle>
+            <CardDescription className="text-purple-200 text-center">
+              Challenge yourself and compete against up to 3 opponents
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2 text-sm text-slate-300">
+              <div className="flex items-center gap-2">
+                <span className="text-purple-400">✓</span>
+                <span>1-4 players per game</span>
               </div>
-              <Button 
-                onClick={() => setAppState({ currentPage: 'game', gameMode: 'solo' })}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-              >
-                Single Player
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Multiplayer */}
-          <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm hover:bg-slate-800/70 transition-all hover:scale-105">
-            <CardHeader>
-              <CardTitle className="text-2xl text-white">Multiplayer</CardTitle>
-              <CardDescription className="text-purple-200">
-                Challenge real players in real-time battles
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2 text-sm text-slate-300">
-                <div className="flex items-center gap-2">
-                  <span className="text-purple-400">✓</span>
-                  <span>Real-time competition</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-purple-400">✓</span>
-                  <span>Climb the leaderboard</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-purple-400">✓</span>
-                  <span>Earn achievements</span>
-                </div>
+              <div className="flex items-center gap-2">
+                <span className="text-purple-400">✓</span>
+                <span>Fill empty slots with AI opponents</span>
               </div>
-              <Button 
-                onClick={() => setAppState({ currentPage: 'game', gameMode: 'multiplayer' })}
-                className="w-full bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
-              >
-                Find Match
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
+              <div className="flex items-center gap-2">
+                <span className="text-purple-400">✓</span>
+                <span>Real-time scoring and leaderboards</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-purple-400">✓</span>
+                <span>Multiple categories and difficulty levels</span>
+              </div>
+            </div>
+            <Button 
+              onClick={() => setAppState({ currentPage: 'lobby', currentLobby: null })}
+              className="w-full bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-lg py-6"
+            >
+              Start Playing
+            </Button>
+          </CardContent>
+        </Card>
 
         {/* Quick Stats */}
         <Card className="bg-slate-800/30 border-slate-700 backdrop-blur-sm">
@@ -146,7 +125,7 @@ function App() {
             Sign Up
           </Button>
           <Button 
-            onClick={() => setAppState({ currentPage: 'admin', gameMode: null })}
+            onClick={() => setAppState({ currentPage: 'admin', currentLobby: null })}
             className="border-slate-600 text-white hover:bg-slate-800 bg-slate-800/30"
             variant="outline"
           >

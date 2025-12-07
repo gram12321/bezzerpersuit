@@ -27,3 +27,27 @@ export interface Question {
   category: QuestionCategory
   difficulty: DifficultyScore
 }
+
+/**
+ * Player in a game session
+ */
+export interface Player {
+  id: string
+  name: string
+  isAI: boolean
+  score: number
+  isReady: boolean
+  avatar?: string
+}
+
+/**
+ * Lobby state during staging phase
+ */
+export interface LobbyState {
+  id: string
+  hostId: string
+  players: Player[]
+  maxPlayers: number
+  isStarted: boolean
+  createdAt: Date
+}
