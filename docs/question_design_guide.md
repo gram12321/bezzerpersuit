@@ -152,20 +152,41 @@ Wrong answers that are clearly incorrect, making the question too easy.
 
 ## Category-Specific Tips
 
-### Geography, Nature, and Environment
+### Geography-Specific Tips
+
+### Geography
 - Include geographical relationships (neighboring countries, climate zones)
-- Reference natural features or environmental patterns
+- Reference natural features or geographical patterns
 - Provide regional context clues
 
-### Science and Technology
+### Nature and Ecology
+- Reference ecosystems, wildlife, and biodiversity
+- Include conservation or environmental concepts
+- Connect to regional fauna/flora variations
+
+### Natural Sciences
 - Connect concepts to observable phenomena
 - Use comparative clues (bigger, faster, older)
 - Reference practical applications
+- Cover physics, chemistry, biology, astronomy, earth science
 
-### Art, Literature, and Culture
+### Technology and Engineering
+- Reference innovations and industrial breakthroughs
+- Include practical applications
+- Mention engineering disciplines or technological eras
+- Cover computing, electronics, transportation, construction
+
+### Visual Arts and Design
 - Mention distinctive styles or movements
-- Include biographical context
-- Reference famous works or techniques
+- Include biographical context of artists
+- Reference famous artworks or architectural projects
+- Cover painting, sculpture, architecture, design, photography
+
+### Literature and Narrative Arts
+- Mention literary movements or writing styles
+- Include biographical context about authors
+- Reference famous works or narrative techniques
+- Cover novels, poetry, theater, storytelling
 
 ### History
 - Provide time period context
@@ -196,6 +217,25 @@ Wrong answers that are clearly incorrect, making the question too easy.
 - Provide cultural origin context
 - Include narrative or symbolic elements
 - Connect to related myths or stories
+
+### Philosophy and Critical Thinking
+- Reference philosophical movements or schools of thought
+- Include historical context about philosophers
+- Connect to logical reasoning or ethical frameworks
+- Cover philosophical concepts, logic, ethics
+
+### Medicine and Health Sciences
+- Reference medical breakthroughs or innovations
+- Include historical context about medical figures
+- Connect to anatomical or physiological concepts
+- Cover medicine, anatomy, public health, diseases
+
+### Law, Government, and Politics
+- Reference specific laws, legal systems, or constitutions
+- Include political figures and their contributions
+- Provide governmental or institutional context
+- Reference time periods and political movements
+- Works particularly well with national question classes
 
 ### General Knowledge
 - Combine multiple domains

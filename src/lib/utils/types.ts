@@ -6,15 +6,21 @@
  * All available quiz categories
  */
 export const QUIZ_CATEGORIES = [
-  'Geography, Nature, and Environment',
-  'Science and Technology',
-  'Art, Literature, and Culture',
+  'Geography',
+  'Nature and Ecology',
+  'Natural Sciences',
+  'Technology and Engineering',
+  'Visual Arts and Design',
+  'Literature and Narrative Arts',
   'History',
   'Sports, Games, and Entertainment',
   'Food and Cooking',
   'Music and Performing Arts',
   'Business and Economics',
   'Mythology and Religion',
+  'Philosophy and Critical Thinking',
+  'Medicine and Health Sciences',
+  'Law, Government, and Politics',
   'General Knowledge'
 ] as const
 
@@ -33,7 +39,9 @@ export const QUESTION_CLASSES = [
   'Eastern', // Cultural / Geographic seperation
   'Latin', // Cultural / Geographic seperation
   'Africa',// Cultural / Geographic seperation
+  'Middle East', // Cultural / Geographic seperation
   'United States', // Country specific
+  'United Kingdom', // Country specific
   'Denmark', // Country specific
   'Germany' // Country specific
 ] as const
@@ -82,6 +90,8 @@ export interface Player {
   selectedAnswer?: number
   iKnowPowerupsRemaining?: number
   usedIKnowThisRound?: boolean
+  usedCategories?: QuestionCategory[]
+  usedDifficulties?: DifficultyScore[]
 }
 
 /**
@@ -105,4 +115,33 @@ export interface LobbyState {
   isStarted: boolean
   createdAt: Date
   gameOptions: GameOptions
+}
+
+// =====================================================
+// AUTH & USER TYPES
+// =====================================================
+
+export interface User {
+  id: string
+  username: string
+  avatarId?: string // Avatar emoji identifier (e.g., 'ninja', 'wizard', 'brain')
+}
+
+export interface PlayerStats {
+  id: string
+  userId: string
+  questionsAnswered: number
+  correctAnswers: number
+  incorrectAnswers: number
+}
+
+export interface GameSession {
+  id: string
+  userId?: string // nullable for anonymous play
+  score: number
+  questionsAnswered: number
+  correctAnswers: number
+  incorrectAnswers: number
+  completed: boolean
+  completedAt?: string
 }

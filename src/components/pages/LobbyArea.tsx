@@ -11,7 +11,8 @@ import {
   removePlayerFromLobby,
   updateGameOptions
 } from '@/lib/services'
-import { cn } from '@/lib/utils/utils'
+import { authService } from '@/lib/services'
+import { cn, getDisplayName } from '@/lib/utils/utils'
 
 interface LobbyAreaProps {
   onStartGame: (lobby: LobbyState) => void
@@ -27,9 +28,12 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
     const playerId = crypto.randomUUID()
     setCurrentPlayerId(playerId)
 
+    const currentUser = authService.getCurrentUser()
+    const playerName = getDisplayName(currentUser)
+
     const hostPlayer: Player = {
       id: playerId,
-      name: 'You',
+      name: playerName,
       isAI: false,
       score: 0,
       isReady: false

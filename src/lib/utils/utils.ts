@@ -1,8 +1,22 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import type { User } from "@/lib/utils/types"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
+}
+
+/**
+ * Get the display name for a user or guest
+ * For guests, returns the nickname from sessionStorage
+ * For registered users, returns username
+ */
+export function getDisplayName(user: User | null): string {
+  if (!user) {
+    const guestNickname = sessionStorage.getItem('guestNickname')
+    return guestNickname || 'Guest'
+  }
+  return user.username
 }
 
 // ========================================

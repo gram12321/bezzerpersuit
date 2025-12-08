@@ -2,8 +2,8 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/u
 import { useGameState } from "@/hooks"
 import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS } from "@/lib/utils/utils"
 import type { LobbyState, QuestionCategory } from '@/lib/utils/types'
-import { QUIZ_CATEGORIES } from '@/lib/utils/types'
-import { createDifficultyScore } from '@/lib/types'
+import { QUIZ_CATEGORIES, createDifficultyScore } from '@/lib/utils/types'
+import { isCategoryUsed, isDifficultyUsed } from "@/lib/services/gameService"
 import { QUESTIONS_PER_GAME } from '@/lib/constants'
 import { calculatePlayerPointsForDisplay } from '@/lib/services'
 
@@ -79,15 +79,20 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="text-center space-y-4">
-              <p className="text-purple-200 text-lg">
-                Ready to test your knowledge?
+              <p className="text-purple-200 text-lg font-semibold">
+                Turn-Based Trivia Challenge!
               </p>
-              <div className="space-y-2 text-sm text-slate-300">
-                <p>• Answer questions as fast as you can</p>
-                <p>• Faster answers = more points</p>
-                <p>• {lobby.gameOptions.questionTimeLimit} seconds per question</p>
+              <div className="space-y-2.5 text-sm text-slate-300">
+                <div className="p-3 bg-purple-600/20 border border-purple-500/30 rounded-lg">
+                  <p className="font-semibold text-purple-300 mb-1">🎯 How It Works</p>
+                  <p className="text-xs">Players take turns choosing category & difficulty for each question</p>
+                </div>
+                <p>• <span className="text-purple-300 font-semibold">Turn Player</span> gets first crack at the question</p>
+                <p>• <span className="text-blue-300 font-semibold">Other Players</span> can score if turn player is wrong, or decrease the turn player's points by answering correctly</p>
+                <p>• Use <span className="text-orange-300 font-semibold">"I KNOW!"</span> power-up ({lobby.gameOptions.iKnowPowerupsPerPlayer}x) for a chance at double points when not in turn if turn player can't answer</p>
+                <p>• {lobby.gameOptions.questionTimeLimit}s to answer • {lobby.gameOptions.selectionTimeLimit}s to select</p>
                 <p>• {lobby.gameOptions.questionsPerGame} questions total</p>
-                <p>• Compete against {gameState.players.length - 1} opponent{gameState.players.length > 2 ? 's' : ''}</p>
+                <p>• Playing with up to {gameState.players.length - 1} opponent{gameState.players.length > 2 ? 's' : ''} or AI's</p>
               </div>
             </div>
             <div className="flex gap-4">
@@ -221,6 +226,60 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                 ⏱️ {gameState.selectionTimeRemaining}s
               </div>
             </div>
+            
+            {/* Show current selections being made */}
+            {!isCurrentPlayersTurn && (gameState.currentSelectionCategory || gameState.currentSelectionDifficulty) && (
+              <div className="mt-4 p-3 bg-purple-600/20 border border-purple-500/50 rounded-lg">
+                <p className="text-sm text-purple-200 text-center mb-2">
+                  {currentTurnPlayer?.name} is choosing...
+                </p>
+                <div className="flex justify-center gap-3 flex-wrap">
+                  {gameState.currentSelectionCategory && (
+                    <span className="text-xs px-3 py-1.5 rounded bg-purple-600/50 text-white font-semibold border border-purple-400/50 animate-pulse">
+                      📁 {gameState.currentSelectionCategory}
+                    </span>
+                  )}
+                  {gameState.currentSelectionDifficulty && (
+                    <span className={cn(
+                      "text-xs px-3 py-1.5 rounded text-white font-semibold border animate-pulse",
+                      getDifficultyColorClasses(gameState.currentSelectionDifficulty)
+                    )}>
+                      ⚡ {QUIZ_DIFFICULTY_LEVELS.find(l => gameState.currentSelectionDifficulty! <= l.max)?.category || 'Unknown'}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {/* Show what the turn player has used so far */}
+            {currentTurnPlayer && ((currentTurnPlayer.usedCategories?.length || 0) > 0 || (currentTurnPlayer.usedDifficulties?.length || 0) > 0) && (
+              <div className="mt-3 p-3 bg-slate-700/30 border border-slate-600/50 rounded-lg">
+                <p className="text-xs text-slate-400 text-center mb-2">{currentTurnPlayer.name} has already used:</p>
+                <div className="space-y-2">
+                  {(currentTurnPlayer.usedCategories?.length || 0) > 0 && (
+                    <div className="flex flex-wrap gap-1.5 justify-center">
+                      {currentTurnPlayer.usedCategories!.map((cat) => (
+                        <span key={cat} className="text-[10px] px-2 py-0.5 rounded bg-slate-600/50 text-slate-400 line-through">
+                          {cat}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {(currentTurnPlayer.usedDifficulties?.length || 0) > 0 && (
+                    <div className="flex flex-wrap gap-1.5 justify-center">
+                      {currentTurnPlayer.usedDifficulties!.map((diff, idx) => {
+                        const level = QUIZ_DIFFICULTY_LEVELS.find(l => diff <= l.max)
+                        return (
+                          <span key={idx} className="text-[10px] px-2 py-0.5 rounded bg-slate-600/50 text-slate-400 line-through">
+                            {level?.category || 'Unknown'}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             {isCurrentPlayersTurn ? (
@@ -235,20 +294,28 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                       )}
                     </h3>
                     <div className="grid gap-1.5">
-                      {QUIZ_CATEGORIES.map((category: QuestionCategory) => (
-                        <Button
-                          key={category}
-                          onClick={() => selectCategory(category)}
-                          className={cn(
-                            "w-full text-white text-left justify-start h-auto py-2 px-3 text-sm",
-                            gameState.selectedCategory === category
-                              ? "bg-purple-600 hover:bg-purple-700 border-2 border-purple-400"
-                              : "bg-slate-700 hover:bg-slate-600"
-                          )}
-                        >
-                          {category}
-                        </Button>
-                      ))}
+                      {QUIZ_CATEGORIES.map((category: QuestionCategory) => {
+                        const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayerId)
+                        const isUsed = isCategoryUsed(category, currentPlayer?.usedCategories || [])
+                        return (
+                          <Button
+                            key={category}
+                            onClick={() => !isUsed && selectCategory(category)}
+                            disabled={isUsed}
+                            className={cn(
+                              "w-full text-left justify-start h-auto py-2 px-3 text-sm relative",
+                              gameState.selectedCategory === category
+                                ? "bg-purple-600 hover:bg-purple-700 border-2 border-purple-400 text-white"
+                                : isUsed
+                                ? "bg-slate-800/50 text-slate-600 cursor-not-allowed line-through"
+                                : "bg-slate-700 hover:bg-slate-600 text-white"
+                            )}
+                          >
+                            {category}
+                            {isUsed && <span className="ml-2 text-xs">✗</span>}
+                          </Button>
+                        )
+                      })}
                     </div>
                   </div>
 
@@ -262,25 +329,33 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                     </h3>
                     <div className="grid grid-cols-2 gap-1.5">
                       {QUIZ_DIFFICULTY_LEVELS.map((level) => {
+                        const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayerId)
                         const targetDifficulty = createDifficultyScore(level.max - 0.05)
                         const isSelected = gameState.selectedDifficulty && 
                           Math.abs(gameState.selectedDifficulty - targetDifficulty) < 0.01
+                        const isUsed = isDifficultyUsed(targetDifficulty, currentPlayer?.usedDifficulties || [])
                         
                         return (
                           <Button
                             key={level.max}
-                            onClick={() => selectDifficulty(targetDifficulty)}
+                            onClick={() => !isUsed && selectDifficulty(targetDifficulty)}
+                            disabled={isUsed}
                             className={cn(
-                              "w-full text-white text-center justify-center h-auto py-2 px-2 text-xs",
+                              "w-full text-center justify-center h-auto py-2 px-2 text-xs relative",
                               isSelected
                                 ? "ring-2 ring-white ring-offset-2 ring-offset-slate-900"
                                 : "",
-                              level.buttonColorClasses
+                              isUsed
+                                ? "bg-slate-800/50 text-slate-600 cursor-not-allowed opacity-50"
+                                : level.buttonColorClasses
                             )}
-                            title={level.description}
+                            title={isUsed ? `Already used` : level.description}
                           >
                             <div>
-                              <div className="font-semibold">{level.category}</div>
+                              <div className={cn("font-semibold", isUsed && "line-through")}>
+                                {level.category}
+                                {isUsed && <span className="ml-1">✗</span>}
+                              </div>
                               <div className="text-[10px] opacity-80">{level.max * 100}%</div>
                             </div>
                           </Button>
@@ -299,11 +374,92 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                 )}
               </>
             ) : (
-              <div className="text-center py-8">
-                <div className="text-purple-400 text-lg animate-pulse">
-                  Waiting for {currentTurnPlayer?.name} to choose...
+              <>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Category Selection - Disabled for non-turn players */}
+                  <div className="space-y-2">
+                    <h3 className="text-white font-semibold text-sm">
+                      Category Selection
+                      {gameState.currentSelectionCategory && (
+                        <span className="ml-2 text-xs text-green-400">✓</span>
+                      )}
+                    </h3>
+                    <div className="grid gap-1.5">
+                      {QUIZ_CATEGORIES.map((category: QuestionCategory) => {
+                        const isUsed = isCategoryUsed(category, currentTurnPlayer?.usedCategories || [])
+                        const isSelected = gameState.currentSelectionCategory === category
+                        return (
+                          <Button
+                            key={category}
+                            disabled={true}
+                            className={cn(
+                              "w-full text-left justify-start h-auto py-2 px-3 text-sm relative cursor-default",
+                              isSelected
+                                ? "bg-purple-600 border-2 border-purple-400 text-white"
+                                : isUsed
+                                ? "bg-slate-800/50 text-slate-600 line-through"
+                                : "bg-slate-700/50 text-slate-300"
+                            )}
+                          >
+                            {category}
+                            {isUsed && <span className="ml-2 text-xs">✗</span>}
+                          </Button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Difficulty Selection - Disabled for non-turn players */}
+                  <div className="space-y-2">
+                    <h3 className="text-white font-semibold text-sm">
+                      Difficulty Selection
+                      {gameState.currentSelectionDifficulty && (
+                        <span className="ml-2 text-xs text-green-400">✓</span>
+                      )}
+                    </h3>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {QUIZ_DIFFICULTY_LEVELS.map((level) => {
+                        const targetDifficulty = createDifficultyScore(level.max - 0.05)
+                        const isSelected = gameState.currentSelectionDifficulty && 
+                          Math.abs(gameState.currentSelectionDifficulty - targetDifficulty) < 0.01
+                        const isUsed = isDifficultyUsed(targetDifficulty, currentTurnPlayer?.usedDifficulties || [])
+                        
+                        return (
+                          <Button
+                            key={level.max}
+                            disabled={true}
+                            className={cn(
+                              "w-full text-center justify-center h-auto py-2 px-2 text-xs relative cursor-default",
+                              isSelected
+                                ? "ring-2 ring-white ring-offset-2 ring-offset-slate-900"
+                                : "",
+                              isUsed
+                                ? "bg-slate-800/50 text-slate-600 opacity-50"
+                                : level.buttonColorClasses.replace('hover:', '')
+                            )}
+                          >
+                            <div>
+                              <div className={cn("font-semibold", isUsed && "line-through")}>
+                                {level.category}
+                                {isUsed && <span className="ml-1">✗</span>}
+                              </div>
+                              <div className="text-[10px] opacity-80">{level.max * 100}%</div>
+                            </div>
+                          </Button>
+                        )
+                      })}
+                    </div>
+                  </div>
                 </div>
-              </div>
+                
+                {gameState.currentSelectionCategory && gameState.currentSelectionDifficulty && (
+                  <div className="text-center py-2 px-4 bg-green-600/20 border border-green-600/50 rounded-lg">
+                    <p className="text-green-300 font-semibold text-sm">
+                      ✓ {currentTurnPlayer?.name} has made their selection! Loading question...
+                    </p>
+                  </div>
+                )}
+              </>
             )}
             <Button 
               onClick={endGame}
@@ -422,7 +578,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                   )}>
                     {QUIZ_DIFFICULTY_LEVELS.find(l => currentQuestion.difficulty <= l.max)?.category || 'Unknown'}
                   </span>
-                  <span className="text-xs px-3 py-1 rounded bg-gradient-to-r from-yellow-600 to-yellow-500 text-white font-semibold border border-yellow-400/50">
+                  <span className="text-xs px-3 py-1 rounded bg-linear-to-r from-yellow-600 to-yellow-500 text-white font-semibold border border-yellow-400/50">
                     👑 Turn Player: {currentTurnPlayer?.name}
                   </span>
                 </div>
@@ -445,7 +601,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                       {iKnowPlayers.map(player => (
                         <span 
                           key={player.id}
-                          className="text-xs px-2 py-1 rounded bg-gradient-to-r from-orange-600 to-red-600 text-white font-semibold border border-orange-400"
+                          className="text-xs px-2 py-1 rounded bg-linear-to-r from-orange-600 to-red-600 text-white font-semibold border border-orange-400"
                         >
                           {player.name} {player.isAI && '🤖'}
                         </span>
@@ -476,7 +632,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                   
                   if (usedThisRound) {
                     return (
-                      <div className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold border-2 border-orange-400">
+                      <div className="px-4 py-2 rounded-lg bg-linear-to-r from-orange-600 to-red-600 text-white font-bold border-2 border-orange-400">
                         ⚡ I KNOW! ACTIVE ⚡
                       </div>
                     )
@@ -489,7 +645,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                       className={cn(
                         "px-6 py-3 font-bold text-lg",
                         powerupsLeft > 0 && !hasAnswered
-                          ? "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-2 border-orange-300 shadow-lg"
+                          ? "bg-linear-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-2 border-orange-300 shadow-lg"
                           : "bg-slate-600 text-slate-400 cursor-not-allowed"
                       )}
                     >
@@ -545,7 +701,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                                 !isCurrentUser && gameState.gamePhase === 'results' && index !== currentQuestion.correctAnswerIndex && "bg-red-600/50 text-red-100",
                                 !isCurrentUser && gameState.gamePhase === 'answering' && "bg-slate-600/50 text-slate-200",
                                 isTurnPlayer && "ring-1 ring-yellow-400",
-                                usedIKnow && !isTurnPlayer && "ring-2 ring-orange-400 bg-gradient-to-r from-orange-600/30 to-red-600/30"
+                                usedIKnow && !isTurnPlayer && "ring-2 ring-orange-400 bg-linear-to-r from-orange-600/30 to-red-600/30"
                               )}
                               title={player.name}
                             >

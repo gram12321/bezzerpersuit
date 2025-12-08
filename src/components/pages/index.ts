@@ -1,3 +1,5 @@
 export * from './GameArea'
 export * from './AdminDashboard'
 export * from './LobbyArea'
+export * from './ProfilePage'
+export * from './WelcomePage'

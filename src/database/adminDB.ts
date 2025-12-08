@@ -1,5 +1,5 @@
 import { supabase } from "@/database/supabase"
-import type { Question } from "@/lib/types"
+import type { Question } from "@/lib/utils/types"
 import { QUIZ_DIFFICULTY_LEVELS } from "@/lib/utils/utils"
 
 export interface AdminQuestionStats {
@@ -49,7 +49,7 @@ export async function getAdminQuestionStats(): Promise<AdminQuestionStats> {
     const difficultyLabel = getDifficultyLabel(q.difficulty)
     
     // Each question can contribute to multiple category counts
-    q.categories?.forEach(category => {
+    q.categories?.forEach((category: string) => {
       stats.questionsByCategory[category] = (stats.questionsByCategory[category] || 0) + 1
       
       // Build category/difficulty matrix

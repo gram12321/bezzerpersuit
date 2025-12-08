@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react"
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
-import { getAllQuestionsForAdmin, getAdminQuestionStats, removeQuestion, type AdminQuestionStats } from "@/lib/services/adminService"
+import { getAllQuestionsForAdmin, getAdminQuestionStats, removeQuestion, deleteAllUsers, type AdminQuestionStats } from "@/lib/services/adminService"
 import { calculateConfidence } from "@/lib/services"
 import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS } from "@/lib/utils/utils"
-import type { Question, QuestionCategory, QuestionClass } from "@/lib/utils/types"
+import type { Question, QuestionCategory } from "@/lib/utils/types"
 
 interface AdminDashboardProps {
   onExit: () => void
@@ -30,6 +30,7 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedQuestion, setSelectedQuestion] = useState<string | null>(null)
+  const [isDeletingUsers, setIsDeletingUsers] = useState(false)
   const [filters, setFilters] = useState<FilterState>({
     collection: null,
     class: null,
@@ -71,6 +72,26 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
     void loadData()
   }, [])
 
+  // Handle delete all users
+  const handleDeleteAllUsers = async () => {
+    try {
+      setIsDeletingUsers(true)
+      setError(null)
+      const result = await deleteAllUsers()
+      
+      if (result.success) {
+        alert(`Successfully deleted ${result.deletedCount} user(s)`)
+      } else {
+        setError(result.error || 'Failed to delete users')
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete users')
+      console.error('Error deleting users:', err)
+    } finally {
+      setIsDeletingUsers(false)
+    }
+  }
+
   // Handle delete question
   const handleDeleteQuestion = async (questionId: string) => {
     if (!confirm('Are you sure you want to delete this question?')) return
@@ -93,7 +114,7 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
   const filteredAndSortedQuestions = questions
     .filter(q => {
       if (filters.collection && !q.questionCollection?.includes(filters.collection)) return false
-      if (filters.class && !q.questionClass?.includes(filters.class)) return false
+      if (filters.class && !q.questionClass?.includes(filters.class as any)) return false
       if (filters.category && !q.categories?.includes(filters.category)) return false
       if (filters.difficulty !== 'all') {
         const level = QUIZ_DIFFICULTY_LEVELS.find(l => q.difficulty <= l.max)?.category.toLowerCase()
@@ -160,13 +181,22 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
             <h1 className="text-4xl font-bold text-white">Admin Dashboard</h1>
             <p className="text-purple-200 mt-2">Manage quiz questions and view statistics</p>
           </div>
-          <Button 
-            onClick={onExit}
-            variant="outline"
-            className="border-slate-600 text-slate-400 hover:bg-slate-800 hover:text-white"
-          >
-            Back to Menu
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              onClick={handleDeleteAllUsers}
+              disabled={isDeletingUsers}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeletingUsers ? 'Deleting...' : 'Delete All Users'}
+            </Button>
+            <Button 
+              onClick={onExit}
+              variant="outline"
+              className="border-slate-600 text-slate-400 hover:bg-slate-800 hover:text-white"
+            >
+              Back to Menu
+            </Button>
+          </div>
         </div>
 
         {/* Error Display */}

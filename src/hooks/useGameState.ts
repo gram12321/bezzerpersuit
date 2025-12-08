@@ -7,7 +7,13 @@ import {
   isLastQuestion, 
   autoSubmitUnansweredPlayers,
   resetPlayerAnswers,
-  updatePlayerAnswer
+  updatePlayerAnswer,
+  markPlayerCategoryUsed,
+  markPlayerDifficultyUsed,
+  areAllCategoriesUsed,
+  areAllDifficultiesUsed,
+  resetPlayerCategories,
+  resetPlayerDifficulties
 } from '@/lib/services/gameService'
 import { applyScores, isAnswerCorrect } from '@/lib/services/scoringService'
 import { selectAICategory, selectAIDifficulty, generateAIAnswers } from '@/lib/ai/aiLogic'
@@ -31,6 +37,8 @@ export interface GameState {
   currentTurnPlayerIndex: number
   selectedCategory: QuestionCategory | null
   selectedDifficulty: DifficultyScore | null
+  currentSelectionCategory: QuestionCategory | null
+  currentSelectionDifficulty: DifficultyScore | null
 }
 
 export function useGameState(initialLobby?: LobbyState) {
@@ -46,12 +54,18 @@ export function useGameState(initialLobby?: LobbyState) {
     showResult: false,
     isCorrect: false,
     questions: [],
-    players: initialLobby?.players || [],
+    players: (initialLobby?.players || []).map(p => ({
+      ...p,
+      usedCategories: p.usedCategories || [],
+      usedDifficulties: p.usedDifficulties || []
+    })),
     currentPlayerId: initialLobby?.players.find(p => !p.isAI)?.id || '',
     gamePhase: 'category-selection',
     currentTurnPlayerIndex: 0,
     selectedCategory: null,
-    selectedDifficulty: null
+    selectedDifficulty: null,
+    currentSelectionCategory: null,
+    currentSelectionDifficulty: null
   })
 
   const startGame = useCallback(async (lobby?: LobbyState) => {
@@ -79,13 +93,17 @@ export function useGameState(initialLobby?: LobbyState) {
           hasAnswered: false, 
           selectedAnswer: undefined,
           iKnowPowerupsRemaining: iKnowPowerups,
-          usedIKnowThisRound: false
+          usedIKnowThisRound: false,
+          usedCategories: [],
+          usedDifficulties: []
         })),
         currentPlayerId,
         gamePhase: 'category-selection' as GamePhase,
         currentTurnPlayerIndex: 0,
         selectedCategory: null,
-        selectedDifficulty: null
+        selectedDifficulty: null,
+        currentSelectionCategory: null,
+        currentSelectionDifficulty: null
       }
     })
   }, [])
@@ -98,8 +116,9 @@ export function useGameState(initialLobby?: LobbyState) {
       setGameState(prev => {
         if (prev.selectionTimeRemaining <= 1) {
           // Time's up - auto-select randomly using AI logic
-          const randomCategory = selectAICategory()
-          const randomDifficulty = selectAIDifficulty()
+          const currentPlayer = prev.players[prev.currentTurnPlayerIndex]
+          const randomCategory = selectAICategory(currentPlayer.usedCategories || [])
+          const randomDifficulty = selectAIDifficulty(currentPlayer.usedDifficulties || [])
           
           return {
             ...prev,
@@ -115,55 +134,127 @@ export function useGameState(initialLobby?: LobbyState) {
     return () => clearInterval(timer)
   }, [gameState.isGameActive, gameState.gamePhase])
 
-  // AI auto-selects category when it's their turn
+  // AI auto-selects category when it's their turn (with delay for visibility)
   useEffect(() => {
     if (!gameState.isGameActive || gameState.gamePhase !== 'category-selection') return
     
     const currentTurnPlayer = gameState.players[gameState.currentTurnPlayerIndex]
-    if (!currentTurnPlayer?.isAI) return
+    if (!currentTurnPlayer?.isAI) {
+      console.log('👤 Current turn player is human:', currentTurnPlayer?.name)
+      return
+    }
 
-    const aiCategory = selectAICategory()
-    const aiDifficulty = selectAIDifficulty()
+    // Don't run if selections are already made or if we're loading
+    if (gameState.selectedCategory || gameState.selectedDifficulty || gameState.isLoading) {
+      console.log('🤖 Skipping AI selection - already in progress or loading')
+      return
+    }
+
+    console.log('🤖 AI turn player:', currentTurnPlayer.name)
+    const aiCategory = selectAICategory(currentTurnPlayer.usedCategories || [])
+    const aiDifficulty = selectAIDifficulty(currentTurnPlayer.usedDifficulties || [])
+    console.log('🤖 AI selected:', { category: aiCategory, difficulty: aiDifficulty })
     
-    setGameState(prev => ({ 
-      ...prev, 
-      selectedCategory: aiCategory,
-      selectedDifficulty: aiDifficulty
-    }))
+    // Show category selection first
+    setTimeout(() => {
+      console.log('🤖 Setting currentSelectionCategory:', aiCategory)
+      setGameState(prev => ({ 
+        ...prev, 
+        currentSelectionCategory: aiCategory
+      }))
+      
+      // Show difficulty selection after another delay
+      setTimeout(() => {
+        console.log('🤖 Setting currentSelectionDifficulty:', aiDifficulty)
+        setGameState(prev => ({ 
+          ...prev, 
+          currentSelectionDifficulty: aiDifficulty
+        }))
+        
+        // Finalize both selections after brief pause
+        setTimeout(() => {
+          console.log('🤖 Finalizing selections:', { category: aiCategory, difficulty: aiDifficulty })
+          setGameState(prev => ({ 
+            ...prev, 
+            selectedCategory: aiCategory,
+            selectedDifficulty: aiDifficulty
+          }))
+        }, 800)
+      }, 1500)
+    }, 1000)
   }, [gameState.isGameActive, gameState.gamePhase, gameState.currentTurnPlayerIndex])
 
   // Load question when both category and difficulty are selected
   useEffect(() => {
-    if (!gameState.isGameActive || gameState.gamePhase !== 'category-selection') return
-    if (!gameState.selectedCategory || !gameState.selectedDifficulty) return
+    console.log('📋 Question loading effect triggered:', {
+      isGameActive: gameState.isGameActive,
+      gamePhase: gameState.gamePhase,
+      selectedCategory: gameState.selectedCategory,
+      selectedDifficulty: gameState.selectedDifficulty,
+      isLoading: gameState.isLoading
+    })
+
+    if (!gameState.isGameActive || gameState.gamePhase !== 'category-selection') {
+      console.log('❌ Skipping: Wrong phase or game not active')
+      return
+    }
+    
+    if (!gameState.selectedCategory || !gameState.selectedDifficulty) {
+      console.log('❌ Skipping: Missing category or difficulty')
+      return
+    }
+
+    if (gameState.isLoading) {
+      console.log('❌ Skipping: Already loading')
+      return
+    }
+
+    console.log('🔍 Loading question:', {
+      category: gameState.selectedCategory,
+      difficulty: gameState.selectedDifficulty,
+      range: [gameState.selectedDifficulty - 0.1, gameState.selectedDifficulty + 0.1]
+    })
 
     setGameState(prev => ({ ...prev, isLoading: true, error: null }))
     
     fetchRandomQuestions(1, gameState.selectedCategory!, gameState.selectedDifficulty! - 0.1, gameState.selectedDifficulty! + 0.1)
       .then(questions => {
+        console.log('✅ Questions fetched:', questions.length)
         if (questions.length === 0) {
           throw new Error('No questions found')
         }
 
-        setGameState(prev => ({
-          ...prev,
-          isLoading: false,
-          questions: [...prev.questions, questions[0]],
-          gamePhase: 'answering' as GamePhase,
-          timeRemaining: initialLobby?.gameOptions.questionTimeLimit || QUESTION_TIME_LIMIT,
-          selectionTimeRemaining: initialLobby?.gameOptions.selectionTimeLimit || SELECTION_TIME_LIMIT,
-          players: resetPlayerAnswers(prev.players)
-        }))
+        setGameState(prev => {
+          // Mark category and difficulty as used for the current turn player
+          let updatedPlayers = markPlayerCategoryUsed(prev.players, prev.currentTurnPlayerIndex, prev.selectedCategory!)
+          updatedPlayers = markPlayerDifficultyUsed(updatedPlayers, prev.currentTurnPlayerIndex, prev.selectedDifficulty!)
+          updatedPlayers = resetPlayerAnswers(updatedPlayers)
+
+          console.log('✅ Moving to answering phase')
+          return {
+            ...prev,
+            isLoading: false,
+            questions: [...prev.questions, questions[0]],
+            gamePhase: 'answering' as GamePhase,
+            timeRemaining: initialLobby?.gameOptions.questionTimeLimit || QUESTION_TIME_LIMIT,
+            selectionTimeRemaining: initialLobby?.gameOptions.selectionTimeLimit || SELECTION_TIME_LIMIT,
+            players: updatedPlayers,
+            selectedCategory: null,
+            selectedDifficulty: null,
+            currentSelectionCategory: null,
+            currentSelectionDifficulty: null
+          }
+        })
       })
       .catch(error => {
-        console.error('Failed to load question:', error)
+        console.error('❌ Failed to load question:', error)
         setGameState(prev => ({
           ...prev,
           isLoading: false,
           error: 'Failed to load question. Please try again.'
         }))
       })
-  }, [gameState.selectedCategory, gameState.selectedDifficulty, gameState.gamePhase, gameState.isGameActive])
+  }, [gameState.selectedCategory, gameState.selectedDifficulty, gameState.gamePhase, gameState.isGameActive, initialLobby])
 
   // AI players auto-answer immediately when question loads
   useEffect(() => {
@@ -275,6 +366,28 @@ export function useGameState(initialLobby?: LobbyState) {
       const questionTimeLimit = initialLobby?.gameOptions.questionTimeLimit || QUESTION_TIME_LIMIT
       const selectionTimeLimit = initialLobby?.gameOptions.selectionTimeLimit || SELECTION_TIME_LIMIT
 
+      console.log('🔄 Turn rotation:', {
+        currentIndex: prev.currentTurnPlayerIndex,
+        currentPlayer: prev.players[prev.currentTurnPlayerIndex]?.name,
+        nextIndex: nextTurnPlayerIndex,
+        nextPlayer: prev.players[nextTurnPlayerIndex]?.name,
+        totalPlayers: prev.players.length
+      })
+
+      // Check if next turn player needs their categories or difficulties reset
+      const nextPlayer = prev.players[nextTurnPlayerIndex]
+      let updatedPlayers = prev.players
+      
+      if (areAllCategoriesUsed(nextPlayer.usedCategories || [])) {
+        updatedPlayers = resetPlayerCategories(updatedPlayers, nextTurnPlayerIndex)
+      }
+
+      if (areAllDifficultiesUsed(nextPlayer.usedDifficulties || [])) {
+        updatedPlayers = resetPlayerDifficulties(updatedPlayers, nextTurnPlayerIndex)
+      }
+      
+      updatedPlayers = resetPlayerAnswers(updatedPlayers).map(p => ({ ...p, usedIKnowThisRound: false }))
+
       return {
         ...prev,
         currentQuestionIndex: prev.currentQuestionIndex + 1,
@@ -287,7 +400,9 @@ export function useGameState(initialLobby?: LobbyState) {
         isCorrect: false,
         selectedCategory: null,
         selectedDifficulty: null,
-        players: resetPlayerAnswers(prev.players).map(p => ({ ...p, usedIKnowThisRound: false }))
+        players: updatedPlayers,
+        currentSelectionCategory: null,
+        currentSelectionDifficulty: null
       }
     })
   }, [initialLobby])
@@ -300,11 +415,19 @@ export function useGameState(initialLobby?: LobbyState) {
   }, [])
 
   const selectCategory = useCallback((category: QuestionCategory) => {
-    setGameState(prev => ({ ...prev, selectedCategory: category }))
+    setGameState(prev => ({ 
+      ...prev, 
+      selectedCategory: category,
+      currentSelectionCategory: category
+    }))
   }, [])
 
   const selectDifficulty = useCallback((difficulty: DifficultyScore) => {
-    setGameState(prev => ({ ...prev, selectedDifficulty: difficulty }))
+    setGameState(prev => ({ 
+      ...prev, 
+      selectedDifficulty: difficulty,
+      currentSelectionDifficulty: difficulty
+    }))
   }, [])
 
   const getCurrentTurnPlayer = useCallback(() => {

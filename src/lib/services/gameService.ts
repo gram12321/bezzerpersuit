@@ -1,4 +1,7 @@
-import type { Player, Question } from '@/lib/utils/types'
+import type { Player, Question, QuestionCategory, DifficultyScore } from '@/lib/utils/types'
+import { QUIZ_CATEGORIES } from '@/lib/utils/types'
+import { QUIZ_DIFFICULTY_LEVELS } from '@/lib/utils/utils'
+import { createDifficultyScore } from '@/lib/utils/types'
 
 /**
  * Game Service - Business logic for quiz game flow and state transitions
@@ -96,6 +99,134 @@ export function updatePlayerAnswer(
   return players.map(p => {
     if (p.id === playerId) {
       return { ...p, hasAnswered: true, selectedAnswer: answerIndex }
+    }
+    return p
+  })
+}
+
+// =====================================================
+// CATEGORY & DIFFICULTY SELECTION TRACKING
+// =====================================================
+
+/**
+ * Check if a category has already been used by a player
+ */
+export function isCategoryUsed(
+  category: QuestionCategory,
+  usedCategories: QuestionCategory[]
+): boolean {
+  return usedCategories.includes(category)
+}
+
+/**
+ * Check if a difficulty has already been used by a player
+ * Compares with tolerance to account for floating point precision
+ */
+export function isDifficultyUsed(
+  difficulty: DifficultyScore,
+  usedDifficulties: DifficultyScore[]
+): boolean {
+  return usedDifficulties.some(used => Math.abs(used - difficulty) < 0.01)
+}
+
+/**
+ * Mark a category as used for a specific player
+ */
+export function markPlayerCategoryUsed(
+  players: Player[],
+  playerIndex: number,
+  category: QuestionCategory
+): Player[] {
+  return players.map((p, idx) => {
+    if (idx === playerIndex) {
+      const usedCategories = p.usedCategories || []
+      if (isCategoryUsed(category, usedCategories)) {
+        return p
+      }
+      return { ...p, usedCategories: [...usedCategories, category] }
+    }
+    return p
+  })
+}
+
+/**
+ * Mark a difficulty as used for a specific player
+ */
+export function markPlayerDifficultyUsed(
+  players: Player[],
+  playerIndex: number,
+  difficulty: DifficultyScore
+): Player[] {
+  return players.map((p, idx) => {
+    if (idx === playerIndex) {
+      const usedDifficulties = p.usedDifficulties || []
+      if (isDifficultyUsed(difficulty, usedDifficulties)) {
+        return p
+      }
+      return { ...p, usedDifficulties: [...usedDifficulties, difficulty] }
+    }
+    return p
+  })
+}
+
+/**
+ * Get available (unused) categories
+ */
+export function getAvailableCategories(
+  usedCategories: QuestionCategory[]
+): QuestionCategory[] {
+  return QUIZ_CATEGORIES.filter(cat => !isCategoryUsed(cat, usedCategories))
+}
+
+/**
+ * Get available (unused) difficulties
+ */
+export function getAvailableDifficulties(
+  usedDifficulties: DifficultyScore[]
+): DifficultyScore[] {
+  return QUIZ_DIFFICULTY_LEVELS.map(level => createDifficultyScore(level.max - 0.05))
+    .filter(diff => !isDifficultyUsed(diff, usedDifficulties))
+}
+
+/**
+ * Check if all categories have been used by a player
+ */
+export function areAllCategoriesUsed(usedCategories: QuestionCategory[]): boolean {
+  return usedCategories.length >= QUIZ_CATEGORIES.length
+}
+
+/**
+ * Check if all difficulties have been used by a player
+ */
+export function areAllDifficultiesUsed(usedDifficulties: DifficultyScore[]): boolean {
+  return usedDifficulties.length >= QUIZ_DIFFICULTY_LEVELS.length
+}
+
+/**
+ * Reset a player's category tracking (allow all categories again)
+ */
+export function resetPlayerCategories(
+  players: Player[],
+  playerIndex: number
+): Player[] {
+  return players.map((p, idx) => {
+    if (idx === playerIndex) {
+      return { ...p, usedCategories: [] }
+    }
+    return p
+  })
+}
+
+/**
+ * Reset a player's difficulty tracking (allow all difficulties again)
+ */
+export function resetPlayerDifficulties(
+  players: Player[],
+  playerIndex: number
+): Player[] {
+  return players.map((p, idx) => {
+    if (idx === playerIndex) {
+      return { ...p, usedDifficulties: [] }
     }
     return p
   })

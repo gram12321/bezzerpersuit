@@ -28,6 +28,21 @@
 
 ---
 
+## Version 0.0005 - Authentication System Implementation
+**Date**: 2025-12-08
+**Commits**: (Uncommitted changes)
+
+### Changes
+- **Database Schema:** NEW `database/migrations/007_auth_system.sql` (194 lines - users, player_stats, game_sessions tables with RLS policies, triggers for auto-stats creation and updates)
+- **Services:** NEW `authService.ts` (280 lines - sign up/in, Google OAuth, session management), `playerStatsService.ts` (238 lines - stats tracking, session management, accuracy calculations)
+- **Components:** NEW `ProfilePage.tsx` (237 lines - user profile with stats grid, accuracy, best score, time played), `AuthPage.tsx` (212 lines - email/password + Google OAuth forms)
+- **Types:** Updated `lib/types.ts` (+47 lines - User, PlayerStats, GameSession interfaces)
+- **App Integration:** Updated `App.tsx` (+30/-7 lines - auth state management, profile/auth routing, conditional UI based on auth status)
+- **Exports:** Updated `services/index.ts`, `pages/index.ts` for barrel exports
+- **Architecture:** Simple Supabase Auth wrapper (~50 lines vs 200+ custom), supports anonymous play, auto-creates player_stats on signup, RLS policies for data security
+
+---
+
 ## Version 0.0004 - Basic Game Alpha
 **Date**: 2025-12-07
 **Commit**: `93c8a73`
