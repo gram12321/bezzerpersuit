@@ -13,6 +13,7 @@ import {
 } from '@/lib/services'
 import { authService } from '@/lib/services'
 import { cn, getDisplayName } from '@/lib/utils/utils'
+import { PLAYER_STATE_EMOJIS } from '@/lib/constants'
 
 interface LobbyAreaProps {
   onStartGame: (lobby: LobbyState) => void
@@ -231,7 +232,7 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
                       "w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold",
                       player.isAI ? "bg-purple-600/30 text-purple-300" : "bg-blue-600/30 text-blue-300"
                     )}>
-                      {player.isAI ? '🤖' : '👤'}
+                      {player.isAI ? PLAYER_STATE_EMOJIS.ai : '👤'}
                     </div>
                     <div>
                       <div className="text-white font-semibold">{player.name}</div>
@@ -243,7 +244,7 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
                   <div className="flex items-center gap-2">
                     {player.isReady && (
                       <div className="text-green-400 text-sm font-semibold">
-                        ✓ Ready
+                        {PLAYER_STATE_EMOJIS.ready} Ready
                       </div>
                     )}
                     {!player.isReady && player.id !== currentPlayerId && (

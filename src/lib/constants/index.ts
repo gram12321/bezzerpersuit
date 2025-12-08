@@ -6,6 +6,8 @@ export {
   STATUS_EMOJIS,
   CATEGORY_EMOJIS,
   getCategoryEmoji,
+  CATEGORY_COLORS,
+  getCategoryColorClasses,
   DIFFICULTY_EMOJIS,
   getDifficultyEmoji,
   PLAYER_STATE_EMOJIS

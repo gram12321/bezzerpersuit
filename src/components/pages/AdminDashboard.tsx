@@ -3,6 +3,7 @@ import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/u
 import { getAllQuestionsForAdmin, getAdminQuestionStats, removeQuestion, deleteAllUsers, type AdminQuestionStats } from "@/lib/services/adminService"
 import { calculateConfidence } from "@/lib/services"
 import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS } from "@/lib/utils/utils"
+import { getCategoryEmoji, getCategoryColorClasses, getDifficultyEmoji, STATUS_EMOJIS } from "@/lib/constants"
 import type { Question, QuestionCategory } from "@/lib/utils/types"
 
 interface AdminDashboardProps {
@@ -494,7 +495,7 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
                               {question.question}
                             </div>
                             <div className="text-sm mt-2 bg-green-900/50 text-green-300 font-bold px-3 py-1 rounded inline-block">
-                              ✓ CORRECT: {String.fromCharCode(65 + question.correctAnswerIndex)}. {question.answers[question.correctAnswerIndex]}
+                              {STATUS_EMOJIS.correct} CORRECT: {String.fromCharCode(65 + question.correctAnswerIndex)}. {question.answers[question.correctAnswerIndex]}
                             </div>
                             {selectedQuestion === question.id && (
                               <div className="mt-2 space-y-1 text-xs">
@@ -519,8 +520,8 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
                           <div className="flex flex-wrap gap-1">
                             {question.categories && question.categories.length > 0 ? (
                               question.categories.map((cat) => (
-                                <span key={cat} className="text-xs px-2 py-1 rounded bg-purple-600/30 text-purple-300">
-                                  {cat}
+                                <span key={cat} className={cn("text-xs px-2 py-1 rounded", getCategoryColorClasses(cat))}>
+                                  {getCategoryEmoji(cat)} {cat}
                                 </span>
                               ))
                             ) : (
@@ -560,7 +561,7 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
                               "text-xs px-2 py-1 rounded font-semibold text-center",
                               getDifficultyColorClasses(question.difficulty)
                             )}>
-                              {QUIZ_DIFFICULTY_LEVELS.find(l => question.difficulty <= l.max)?.category || 'Unknown'}
+                              {getDifficultyEmoji(question.difficulty)} {QUIZ_DIFFICULTY_LEVELS.find(l => question.difficulty <= l.max)?.category || 'Unknown'}
                             </span>
                             <span className="text-xs text-slate-500 text-center font-mono">
                               {question.difficulty.toFixed(3)}
@@ -570,8 +571,8 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
                         <td className="p-3">
                           <div className="flex flex-col gap-1 text-xs text-slate-300">
                             <div className="flex items-center justify-center gap-2">
-                              <span>✓ {question.correctCount || 0}</span>
-                              <span>✗ {question.incorrectCount || 0}</span>
+                              <span>{STATUS_EMOJIS.correct} {question.correctCount || 0}</span>
+                              <span>{STATUS_EMOJIS.incorrect} {question.incorrectCount || 0}</span>
                             </div>
                             <div className="text-center text-slate-400 font-mono">
                               {(() => {

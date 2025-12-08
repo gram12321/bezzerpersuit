@@ -4,7 +4,7 @@ import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS } from "@/lib/uti
 import type { LobbyState, QuestionCategory } from '@/lib/utils/types'
 import { QUIZ_CATEGORIES, createDifficultyScore } from '@/lib/utils/types'
 import { isCategoryUsed, isDifficultyUsed } from "@/lib/services/gameService"
-import { QUESTIONS_PER_GAME } from '@/lib/constants'
+import { QUESTIONS_PER_GAME, getCategoryColorClasses, getCategoryEmoji, getDifficultyEmoji, PLAYER_STATE_EMOJIS, STATUS_EMOJIS } from '@/lib/constants'
 import { calculatePlayerPointsForDisplay } from '@/lib/services'
 
 
@@ -223,7 +223,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                 "text-sm font-bold px-3 py-1 rounded",
                 gameState.selectionTimeRemaining <= 5 ? "bg-red-600/30 text-red-300" : "bg-slate-700/50 text-slate-300"
               )}>
-                ⏱️ {gameState.selectionTimeRemaining}s
+                {STATUS_EMOJIS.timer} {gameState.selectionTimeRemaining}s
               </div>
             </div>
             
@@ -236,7 +236,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                 <div className="flex justify-center gap-3 flex-wrap">
                   {gameState.currentSelectionCategory && (
                     <span className="text-xs px-3 py-1.5 rounded bg-purple-600/50 text-white font-semibold border border-purple-400/50 animate-pulse">
-                      📁 {gameState.currentSelectionCategory}
+                      {getCategoryEmoji(gameState.currentSelectionCategory)} {gameState.currentSelectionCategory}
                     </span>
                   )}
                   {gameState.currentSelectionDifficulty && (
@@ -244,7 +244,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                       "text-xs px-3 py-1.5 rounded text-white font-semibold border animate-pulse",
                       getDifficultyColorClasses(gameState.currentSelectionDifficulty)
                     )}>
-                      ⚡ {QUIZ_DIFFICULTY_LEVELS.find(l => gameState.currentSelectionDifficulty! <= l.max)?.category || 'Unknown'}
+                      {getDifficultyEmoji(gameState.currentSelectionDifficulty)} {QUIZ_DIFFICULTY_LEVELS.find(l => gameState.currentSelectionDifficulty! <= l.max)?.category || 'Unknown'}
                     </span>
                   )}
                 </div>
@@ -305,14 +305,15 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                             className={cn(
                               "w-full text-left justify-start h-auto py-2 px-3 text-sm relative",
                               gameState.selectedCategory === category
-                                ? "bg-purple-600 hover:bg-purple-700 border-2 border-purple-400 text-white"
+                                ? `${getCategoryColorClasses(category)} border-2 border-white ring-2 ring-white ring-offset-2 ring-offset-slate-900`
                                 : isUsed
                                 ? "bg-slate-800/50 text-slate-600 cursor-not-allowed line-through"
-                                : "bg-slate-700 hover:bg-slate-600 text-white"
+                                : getCategoryColorClasses(category)
                             )}
                           >
+                            <span className="mr-2">{getCategoryEmoji(category)}</span>
                             {category}
-                            {isUsed && <span className="ml-2 text-xs">✗</span>}
+                            {isUsed && <span className="ml-2 text-xs">{STATUS_EMOJIS.incorrect}</span>}
                           </Button>
                         )
                       })}
@@ -368,7 +369,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                 {gameState.selectedCategory && gameState.selectedDifficulty && (
                   <div className="text-center py-2 px-4 bg-green-600/20 border border-green-600/50 rounded-lg">
                     <p className="text-green-300 font-semibold text-sm">
-                      ✓ Selection complete! Loading question...
+                      {STATUS_EMOJIS.correct} Selection complete! Loading question...
                     </p>
                   </div>
                 )}
@@ -401,8 +402,9 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                                 : "bg-slate-700/50 text-slate-300"
                             )}
                           >
+                            <span className="mr-2">{getCategoryEmoji(category)}</span>
                             {category}
-                            {isUsed && <span className="ml-2 text-xs">✗</span>}
+                            {isUsed && <span className="ml-2 text-xs">{STATUS_EMOJIS.incorrect}</span>}
                           </Button>
                         )
                       })}
@@ -440,8 +442,8 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                           >
                             <div>
                               <div className={cn("font-semibold", isUsed && "line-through")}>
-                                {level.category}
-                                {isUsed && <span className="ml-1">✗</span>}
+                                {getDifficultyEmoji(level.max - 0.05)} {level.category}
+                                {isUsed && <span className="ml-1">{STATUS_EMOJIS.incorrect}</span>}
                               </div>
                               <div className="text-[10px] opacity-80">{level.max * 100}%</div>
                             </div>
@@ -498,7 +500,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                     >
                       {isTurnPlayer && (
                         <div className="absolute -top-2 -right-2 bg-yellow-500 rounded-full w-6 h-6 flex items-center justify-center text-xs">
-                          👑
+                          {PLAYER_STATE_EMOJIS.host}
                         </div>
                       )}
                       <div className={cn(
@@ -516,7 +518,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                           player.id === gameState.currentPlayerId ? "text-purple-200" : "text-white"
                         )}>
                         {player.name}
-                        {player.isAI && ' 🤖'}
+                        {player.isAI && ` ${PLAYER_STATE_EMOJIS.ai}`}
                       </div>
                       <div className="text-xs text-slate-400">{player.score.toFixed(2)} pts</div>
                       </div>
@@ -568,18 +570,18 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
               <div className="space-y-2 flex-1">
                 <div className="flex gap-2 items-center flex-wrap">
                   {currentQuestion.categories.map((cat) => (
-                    <span key={cat} className="text-xs px-2 py-1 rounded bg-purple-600/30 text-purple-300">
-                      {cat}
+                    <span key={cat} className={cn("text-xs px-2 py-1 rounded", getCategoryColorClasses(cat))}>
+                      {getCategoryEmoji(cat)} {cat}
                     </span>
                   ))}
                   <span className={cn(
                     "text-xs px-2 py-1 rounded",
                     getDifficultyColorClasses(currentQuestion.difficulty)
                   )}>
-                    {QUIZ_DIFFICULTY_LEVELS.find(l => currentQuestion.difficulty <= l.max)?.category || 'Unknown'}
+                    {getDifficultyEmoji(currentQuestion.difficulty)} {QUIZ_DIFFICULTY_LEVELS.find(l => currentQuestion.difficulty <= l.max)?.category || 'Unknown'}
                   </span>
                   <span className="text-xs px-3 py-1 rounded bg-linear-to-r from-yellow-600 to-yellow-500 text-white font-semibold border border-yellow-400/50">
-                    👑 Turn Player: {currentTurnPlayer?.name}
+                    {PLAYER_STATE_EMOJIS.host} Turn Player: {currentTurnPlayer?.name}
                   </span>
                 </div>
                 <CardTitle className="text-2xl text-white">
@@ -597,13 +599,13 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                   
                   return (
                     <div className="flex items-center gap-2 mt-2">
-                      <span className="text-xs font-bold text-orange-400 animate-pulse">⚡ I KNOW! ACTIVE:</span>
+                      <span className="text-xs font-bold text-orange-400 animate-pulse">{STATUS_EMOJIS.lightning} I KNOW! ACTIVE:</span>
                       {iKnowPlayers.map(player => (
                         <span 
                           key={player.id}
                           className="text-xs px-2 py-1 rounded bg-linear-to-r from-orange-600 to-red-600 text-white font-semibold border border-orange-400"
                         >
-                          {player.name} {player.isAI && '🤖'}
+                          {player.name} {player.isAI && PLAYER_STATE_EMOJIS.ai}
                         </span>
                       ))}
                     </div>
@@ -633,7 +635,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                   if (usedThisRound) {
                     return (
                       <div className="px-4 py-2 rounded-lg bg-linear-to-r from-orange-600 to-red-600 text-white font-bold border-2 border-orange-400">
-                        ⚡ I KNOW! ACTIVE ⚡
+                        {STATUS_EMOJIS.lightning} I KNOW! ACTIVE {STATUS_EMOJIS.lightning}
                       </div>
                     )
                   }
@@ -649,7 +651,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                           : "bg-slate-600 text-slate-400 cursor-not-allowed"
                       )}
                     >
-                      ⚡ I KNOW! ({powerupsLeft} left)
+                      {STATUS_EMOJIS.lightning} I KNOW! ({powerupsLeft} left)
                     </Button>
                   )
                 })()}

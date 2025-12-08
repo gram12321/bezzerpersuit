@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { User, LogOut, Target, TrendingUp } from 'lucide-react'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui'
 import { authService, playerStatsService } from '@/lib/services'
+import { STATUS_EMOJIS } from '@/lib/constants'
 import type { User as UserType, PlayerStats } from '@/lib/utils/types'
 
 interface ProfilePageProps {
@@ -147,11 +148,11 @@ export function ProfilePage({ onBack, onSignOut }: ProfilePageProps) {
                 <span className="text-white font-semibold">{stats.questionsAnswered}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Correct Answers</span>
+                <span className="text-slate-400">{STATUS_EMOJIS.correct} Correct Answers</span>
                 <span className="text-green-400 font-semibold">{stats.correctAnswers}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-400">Incorrect Answers</span>
+                <span className="text-slate-400">{STATUS_EMOJIS.incorrect} Incorrect Answers</span>
                 <span className="text-red-400 font-semibold">{stats.incorrectAnswers}</span>
               </div>
               <div className="flex justify-between">

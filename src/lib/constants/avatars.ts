@@ -97,6 +97,36 @@ export function getCategoryEmoji(category: string): string {
 }
 
 /**
+ * Category color classes for quiz categories
+ * Each category gets distinctive colors for background and text
+ */
+export const CATEGORY_COLORS: Record<string, string> = {
+  'Geography': 'bg-blue-600 hover:bg-blue-700 text-white',
+  'Nature and Ecology': 'bg-green-600 hover:bg-green-700 text-white',
+  'Natural Sciences': 'bg-cyan-600 hover:bg-cyan-700 text-white',
+  'Technology and Engineering': 'bg-slate-600 hover:bg-slate-700 text-white',
+  'Visual Arts and Design': 'bg-pink-600 hover:bg-pink-700 text-white',
+  'Literature and Narrative Arts': 'bg-amber-600 hover:bg-amber-700 text-white',
+  'History': 'bg-yellow-700 hover:bg-yellow-800 text-white',
+  'Sports, Games, and Entertainment': 'bg-orange-600 hover:bg-orange-700 text-white',
+  'Food and Cooking': 'bg-red-600 hover:bg-red-700 text-white',
+  'Music and Performing Arts': 'bg-purple-600 hover:bg-purple-700 text-white',
+  'Business and Economics': 'bg-indigo-600 hover:bg-indigo-700 text-white',
+  'Mythology and Religion': 'bg-violet-600 hover:bg-violet-700 text-white',
+  'Philosophy and Critical Thinking': 'bg-fuchsia-600 hover:bg-fuchsia-700 text-white',
+  'Medicine and Health Sciences': 'bg-teal-600 hover:bg-teal-700 text-white',
+  'Law, Government, and Politics': 'bg-rose-700 hover:bg-rose-800 text-white',
+  'General Knowledge': 'bg-emerald-600 hover:bg-emerald-700 text-white'
+}
+
+/**
+ * Get color classes for a category
+ */
+export function getCategoryColorClasses(category: string): string {
+  return CATEGORY_COLORS[category] || 'bg-slate-600 hover:bg-slate-700 text-white'
+}
+
+/**
  * Difficulty emojis matching the 10 quiz difficulty levels
  */
 export const DIFFICULTY_EMOJIS = {

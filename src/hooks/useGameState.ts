@@ -140,24 +140,19 @@ export function useGameState(initialLobby?: LobbyState) {
     
     const currentTurnPlayer = gameState.players[gameState.currentTurnPlayerIndex]
     if (!currentTurnPlayer?.isAI) {
-      console.log('👤 Current turn player is human:', currentTurnPlayer?.name)
       return
     }
 
     // Don't run if selections are already made or if we're loading
     if (gameState.selectedCategory || gameState.selectedDifficulty || gameState.isLoading) {
-      console.log('🤖 Skipping AI selection - already in progress or loading')
       return
     }
 
-    console.log('🤖 AI turn player:', currentTurnPlayer.name)
     const aiCategory = selectAICategory(currentTurnPlayer.usedCategories || [])
     const aiDifficulty = selectAIDifficulty(currentTurnPlayer.usedDifficulties || [])
-    console.log('🤖 AI selected:', { category: aiCategory, difficulty: aiDifficulty })
     
     // Show category selection first
     setTimeout(() => {
-      console.log('🤖 Setting currentSelectionCategory:', aiCategory)
       setGameState(prev => ({ 
         ...prev, 
         currentSelectionCategory: aiCategory
@@ -165,7 +160,6 @@ export function useGameState(initialLobby?: LobbyState) {
       
       // Show difficulty selection after another delay
       setTimeout(() => {
-        console.log('🤖 Setting currentSelectionDifficulty:', aiDifficulty)
         setGameState(prev => ({ 
           ...prev, 
           currentSelectionDifficulty: aiDifficulty
@@ -173,7 +167,6 @@ export function useGameState(initialLobby?: LobbyState) {
         
         // Finalize both selections after brief pause
         setTimeout(() => {
-          console.log('🤖 Finalizing selections:', { category: aiCategory, difficulty: aiDifficulty })
           setGameState(prev => ({ 
             ...prev, 
             selectedCategory: aiCategory,
@@ -186,40 +179,22 @@ export function useGameState(initialLobby?: LobbyState) {
 
   // Load question when both category and difficulty are selected
   useEffect(() => {
-    console.log('📋 Question loading effect triggered:', {
-      isGameActive: gameState.isGameActive,
-      gamePhase: gameState.gamePhase,
-      selectedCategory: gameState.selectedCategory,
-      selectedDifficulty: gameState.selectedDifficulty,
-      isLoading: gameState.isLoading
-    })
-
     if (!gameState.isGameActive || gameState.gamePhase !== 'category-selection') {
-      console.log('❌ Skipping: Wrong phase or game not active')
       return
     }
     
     if (!gameState.selectedCategory || !gameState.selectedDifficulty) {
-      console.log('❌ Skipping: Missing category or difficulty')
       return
     }
 
     if (gameState.isLoading) {
-      console.log('❌ Skipping: Already loading')
       return
     }
-
-    console.log('🔍 Loading question:', {
-      category: gameState.selectedCategory,
-      difficulty: gameState.selectedDifficulty,
-      range: [gameState.selectedDifficulty - 0.1, gameState.selectedDifficulty + 0.1]
-    })
 
     setGameState(prev => ({ ...prev, isLoading: true, error: null }))
     
     fetchRandomQuestions(1, gameState.selectedCategory!, gameState.selectedDifficulty! - 0.1, gameState.selectedDifficulty! + 0.1)
       .then(questions => {
-        console.log('✅ Questions fetched:', questions.length)
         if (questions.length === 0) {
           throw new Error('No questions found')
         }
@@ -230,7 +205,6 @@ export function useGameState(initialLobby?: LobbyState) {
           updatedPlayers = markPlayerDifficultyUsed(updatedPlayers, prev.currentTurnPlayerIndex, prev.selectedDifficulty!)
           updatedPlayers = resetPlayerAnswers(updatedPlayers)
 
-          console.log('✅ Moving to answering phase')
           return {
             ...prev,
             isLoading: false,
@@ -247,14 +221,14 @@ export function useGameState(initialLobby?: LobbyState) {
         })
       })
       .catch(error => {
-        console.error('❌ Failed to load question:', error)
+        console.error('Failed to load question:', error)
         setGameState(prev => ({
           ...prev,
           isLoading: false,
           error: 'Failed to load question. Please try again.'
         }))
       })
-  }, [gameState.selectedCategory, gameState.selectedDifficulty, gameState.gamePhase, gameState.isGameActive, initialLobby])
+  }, [gameState.selectedCategory, gameState.selectedDifficulty, gameState.gamePhase, gameState.isGameActive, gameState.isLoading, initialLobby])
 
   // AI players auto-answer immediately when question loads
   useEffect(() => {
@@ -365,14 +339,6 @@ export function useGameState(initialLobby?: LobbyState) {
       const nextTurnPlayerIndex = getNextTurnPlayerIndex(prev.currentTurnPlayerIndex, prev.players.length)
       const questionTimeLimit = initialLobby?.gameOptions.questionTimeLimit || QUESTION_TIME_LIMIT
       const selectionTimeLimit = initialLobby?.gameOptions.selectionTimeLimit || SELECTION_TIME_LIMIT
-
-      console.log('🔄 Turn rotation:', {
-        currentIndex: prev.currentTurnPlayerIndex,
-        currentPlayer: prev.players[prev.currentTurnPlayerIndex]?.name,
-        nextIndex: nextTurnPlayerIndex,
-        nextPlayer: prev.players[nextTurnPlayerIndex]?.name,
-        totalPlayers: prev.players.length
-      })
 
       // Check if next turn player needs their categories or difficulties reset
       const nextPlayer = prev.players[nextTurnPlayerIndex]
