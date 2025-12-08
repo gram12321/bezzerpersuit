@@ -24,6 +24,23 @@ export const QUIZ_CATEGORIES = [
 export type QuestionCategory = typeof QUIZ_CATEGORIES[number]
 
 /**
+ * Question class values for geographic/cultural filtering
+ */
+export const QUESTION_CLASSES = [
+  'Global', // equal to all
+  'Western', // Cultural / Geographic seperation
+  'Far East',// Cultural / Geographic seperation
+  'Eastern', // Cultural / Geographic seperation
+  'Latin', // Cultural / Geographic seperation
+  'Africa',// Cultural / Geographic seperation
+  'United States', // Country specific
+  'Denmark', // Country specific
+  'Germany' // Country specific
+] as const
+
+export type QuestionClass = typeof QUESTION_CLASSES[number]
+
+/**
  * Game phase for turn-based gameplay
  */
 export type GamePhase = 'category-selection' | 'answering' | 'results'
@@ -43,6 +60,8 @@ export interface Question {
   answers: string[]
   correctAnswerIndex: number
   categories: QuestionCategory[]  // Questions can belong to multiple categories
+  questionClass: QuestionClass[]  // Geographic/cultural classification (e.g., ['Global'], ['Western', 'Far East'])
+  questionCollection: string[]  // Question collection(s) this belongs to (e.g., ['Basegame'], ['WW2', 'History Pack'])
   difficulty: DifficultyScore
   correctCount?: number
   incorrectCount?: number

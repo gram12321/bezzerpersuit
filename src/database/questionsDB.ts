@@ -1,5 +1,5 @@
 import { supabase } from '@/database/supabase'
-import type { Question, QuestionCategory } from '@/lib/utils/types'
+import type { Question, QuestionCategory, QuestionClass } from '@/lib/utils/types'
 import { createDifficultyScore } from '@/lib/utils/types'
 
 /**
@@ -11,6 +11,8 @@ interface QuestionRow {
   answers: string[]
   correct_answer_index: number
   categories: string[]  // Array of categories
+  question_class: string[]  // Array of geographic/cultural classifications
+  question_collection: string[]  // Array of collection names
   difficulty: number
   correct_count: number
   incorrect_count: number
@@ -29,6 +31,8 @@ function mapRowToQuestion(row: QuestionRow): Question {
     answers: row.answers,
     correctAnswerIndex: row.correct_answer_index,
     categories: row.categories as QuestionCategory[],
+    questionClass: row.question_class as QuestionClass[],
+    questionCollection: row.question_collection,
     difficulty: createDifficultyScore(row.difficulty)
   }
 }

@@ -26,6 +26,8 @@ export async function getAllQuestionsForAdmin(): Promise<Question[]> {
     answers: q.answers,
     correctAnswerIndex: q.correct_answer_index,
     categories: q.categories || [],
+    questionClass: q.question_class || [],
+    questionCollection: q.question_collection || [],
     difficulty: q.difficulty,
     correctCount: q.correct_count || 0,
     incorrectCount: q.incorrect_count || 0,

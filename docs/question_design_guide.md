@@ -25,6 +25,34 @@ Good quiz questions should reward **critical thinking and deduction** rather tha
 ### Guidelines:
 - Most questions should have **1-3 categories**
 
+---
+
+## Question Classes (Geographic/Cultural Filtering)
+
+**Every question must have at least one question class**, which defines the geographic or cultural scope of knowledge required. This ensures fair gameplay across different regions and backgrounds.
+
+### Available Classes:
+- **`Global`** - Universal knowledge accessible worldwide
+- **`Western`** - Western culture (Europe, Americas, Australia)
+- **`Far East`** - East Asian culture
+- **`Eastern`** - Eastern Europe / Russia
+- **`Latin`** - Latin America
+- **`Africa`** - African regions
+- **Country-specific** - e.g., `United States`, `Denmark`, `Germany`
+
+### Guidelines:
+- Questions can have multiple classes (e.g., Berlin Wall → `['Western', 'Eastern']`, Pacific WW2 → `['Western', 'Far East']`)
+- Use `['Global']` for universally accessible knowledge
+- Always assign at least one class
+
+
+## Question Collections
+
+**Every question must belong to at least one collection.** Collections group questions that were added together, making it easy to manage content updates and expansions.
+
+### Collection Strategy:
+- **`Basegame`** - Core questions included in the initial release
+- **Thematic collections** - Questions added around specific topics (e.g., `WW2`, `Space Exploration`, `Sports Pack`, `Movie Trivia``British Culture`, `Japanese History`)
 
 ---
 
@@ -173,9 +201,3 @@ Wrong answers that are clearly incorrect, making the question too easy.
 - Combine multiple domains
 - Use everyday connections
 - Provide multiple reasoning paths
-
----
-
-
-
----
