@@ -1,5 +1,7 @@
-import type { Question, QuestionCategory } from '@/lib/utils/types'
-import { getQuestionsWithFilters, getQuestionDifficultyById, updateQuestionDifficultyById, getAllQuestions } from '@/database'
+import type { Question, QuestionCategory, Player } from '@/lib/utils/types'
+import { getQuestionsWithFilters, getQuestionDifficultyById, updateQuestionDifficultyById, getAllQuestions, getQuestionStats, updateQuestionStats } from '@/database'
+import { calculateAdaptiveDifficulty } from './adaptiveDifficulty'
+import { getHumanPlayers } from './scoringService'
 
 export async function fetchRandomQuestions(
   count: number = 8,
@@ -104,5 +106,66 @@ export async function updateQuestionDifficulty(
   } catch (error) {
     console.error('Error updating question difficulty:', error)
     throw error
+  }
+}
+
+/**
+ * Update question stats and adaptive difficulty based on human player performance
+ * Excludes AI players from difficulty calculations
+ * 
+ * @param question - The question that was answered
+ * @param players - All players with their answers
+ */
+export async function updateQuestionStatsFromPlayers(
+  question: Question,
+  players: Player[]
+): Promise<void> {
+  try {
+    const humanPlayers = getHumanPlayers(players)
+    
+    if (humanPlayers.length === 0) {
+      // No human players, don't update difficulty
+      return
+    }
+
+    const humanCorrect = humanPlayers.filter(
+      p => p.selectedAnswer === question.correctAnswerIndex
+    ).length
+    const humanIncorrect = humanPlayers.length - humanCorrect
+
+    // Get current stats
+    const stats = await getQuestionStats(question.id)
+
+    // Calculate new difficulty using adaptive algorithm
+    const update = calculateAdaptiveDifficulty(
+      stats.difficulty,
+      {
+        correct_count: stats.correct_count,
+        incorrect_count: stats.incorrect_count,
+        recent_history: stats.recent_history
+      },
+      humanCorrect,
+      humanIncorrect
+    )
+
+    // Update counts and history
+    const newCorrectCount = stats.correct_count + humanCorrect
+    const newIncorrectCount = stats.incorrect_count + humanIncorrect
+    const newHistory = [
+      ...stats.recent_history,
+      ...Array(humanCorrect).fill(true),
+      ...Array(humanIncorrect).fill(false)
+    ].slice(-10) // Keep last 10 results
+
+    await updateQuestionStats(
+      question.id,
+      update.newDifficulty,
+      newCorrectCount,
+      newIncorrectCount,
+      newHistory
+    )
+  } catch (error) {
+    console.error('Failed to update question stats:', error)
+    // Don't throw - this is a non-critical operation
   }
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
+import { Button, Card, CardContent, CardHeader, CardTitle, Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui"
 import type { LobbyState, Player } from '@/lib/utils/types'
 import { 
   createLobby, 
@@ -8,7 +8,8 @@ import {
   togglePlayerReady, 
   canStartGame,
   startLobbyGame,
-  removePlayerFromLobby
+  removePlayerFromLobby,
+  updateGameOptions
 } from '@/lib/services'
 import { cn } from '@/lib/utils/utils'
 
@@ -63,6 +64,11 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
     onStartGame(startedLobby)
   }
 
+  const handleUpdateOption = (key: keyof LobbyState['gameOptions'], value: number) => {
+    if (!lobby || !isHost) return
+    setLobby(updateGameOptions(lobby, { [key]: value }))
+  }
+
   if (!lobby) {
     return (
       <div className="min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
@@ -100,6 +106,109 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
             </div>
           </CardHeader>
         </Card>
+
+        {/* Game Options - Host Only */}
+        {isHost && (
+          <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle className="text-xl text-purple-300">Game Options</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Accordion type="single" collapsible>
+                <AccordionItem value="game-options" className="border-slate-700">
+                  <AccordionTrigger className="text-slate-300 hover:text-purple-300">
+                    Configure Game Settings
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="grid md:grid-cols-2 gap-6 pt-4">
+                {/* Questions Per Game */}
+                <div className="space-y-2">
+                  <label className="text-sm text-slate-300 font-semibold flex items-center justify-between">
+                    <span>Questions Per Game</span>
+                    <span className="text-purple-400 text-lg font-bold">{lobby.gameOptions.questionsPerGame}</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={5}
+                    max={20}
+                    value={lobby.gameOptions.questionsPerGame}
+                    onChange={(e) => handleUpdateOption('questionsPerGame', parseInt(e.target.value))}
+                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                  />
+                  <div className="flex justify-between text-xs text-slate-500">
+                    <span>5</span>
+                    <span>20</span>
+                  </div>
+                </div>
+
+                {/* Question Time Limit */}
+                <div className="space-y-2">
+                  <label className="text-sm text-slate-300 font-semibold flex items-center justify-between">
+                    <span>Question Time (seconds)</span>
+                    <span className="text-purple-400 text-lg font-bold">{lobby.gameOptions.questionTimeLimit}s</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={10}
+                    max={60}
+                    step={5}
+                    value={lobby.gameOptions.questionTimeLimit}
+                    onChange={(e) => handleUpdateOption('questionTimeLimit', parseInt(e.target.value))}
+                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                  />
+                  <div className="flex justify-between text-xs text-slate-500">
+                    <span>10s</span>
+                    <span>60s</span>
+                  </div>
+                </div>
+
+                {/* Selection Time Limit */}
+                <div className="space-y-2">
+                  <label className="text-sm text-slate-300 font-semibold flex items-center justify-between">
+                    <span>Category Selection Time (seconds)</span>
+                    <span className="text-purple-400 text-lg font-bold">{lobby.gameOptions.selectionTimeLimit}s</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={5}
+                    max={30}
+                    step={5}
+                    value={lobby.gameOptions.selectionTimeLimit}
+                    onChange={(e) => handleUpdateOption('selectionTimeLimit', parseInt(e.target.value))}
+                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                  />
+                  <div className="flex justify-between text-xs text-slate-500">
+                    <span>5s</span>
+                    <span>30s</span>
+                  </div>
+                </div>
+
+                {/* I Know! Powerups */}
+                <div className="space-y-2">
+                  <label className="text-sm text-slate-300 font-semibold flex items-center justify-between">
+                    <span>"I KNOW!" Powerups</span>
+                    <span className="text-purple-400 text-lg font-bold">{lobby.gameOptions.iKnowPowerupsPerPlayer}</span>
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={5}
+                    value={lobby.gameOptions.iKnowPowerupsPerPlayer}
+                    onChange={(e) => handleUpdateOption('iKnowPowerupsPerPlayer', parseInt(e.target.value))}
+                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                  />
+                  <div className="flex justify-between text-xs text-slate-500">
+                    <span>0</span>
+                    <span>5</span>
+                  </div>
+                </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Player Slots */}
         <div className="grid md:grid-cols-2 gap-4">

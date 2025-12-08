@@ -1,36 +1,65 @@
-import type { Question, Player } from '@/lib/utils/types'
+import type { Question, Player, QuestionCategory, DifficultyScore } from '@/lib/utils/types'
+import { QUIZ_CATEGORIES } from '@/lib/utils/types'
 
 /**
  * AI Logic - Handles AI player behavior and decision making
  */
 
 /**
- * Generate AI answer for a question
- * Currently uses random selection
+ * Generate AI answer for a question based on difficulty
+ * Higher difficulty = lower chance of correct answer
  */
 export function generateAIAnswer(question: Question): number {
-  return Math.floor(Math.random() * question.answers.length)
+  const correctChance = 1 - question.difficulty
+  const willAnswerCorrectly = Math.random() < correctChance
+  
+  if (willAnswerCorrectly) {
+    return question.correctAnswerIndex
+  }
+  
+  // Pick a random wrong answer
+  const wrongAnswers = question.answers
+    .map((_, index) => index)
+    .filter(index => index !== question.correctAnswerIndex)
+  
+  return wrongAnswers[Math.floor(Math.random() * wrongAnswers.length)]
 }
 
 /**
- * Process AI answers for all AI players in a game
- * @param players - All players in the game
- * @param currentPlayerId - ID of the current human player
- * @param question - Current question
- * @returns Updated players array with AI scores updated
+ * AI selects a random category
  */
-export function processAIAnswers(
+export function selectAICategory(): QuestionCategory {
+  return QUIZ_CATEGORIES[Math.floor(Math.random() * QUIZ_CATEGORIES.length)]
+}
+
+/**
+ * AI selects a difficulty in the medium range (0.3 to 0.7)
+ */
+export function selectAIDifficulty(): DifficultyScore {
+  return (0.3 + Math.random() * 0.4) as DifficultyScore
+}
+
+/**
+ * Generate AI answers for all AI players
+ * Sets hasAnswered and selectedAnswer for each AI
+ * 
+ * @param players - All players in the game
+ * @param question - Current question
+ * @returns Updated players array with AI answers
+ */
+export function generateAIAnswers(
   players: Player[],
-  currentPlayerId: string,
   question: Question
 ): Player[] {
-  return players.map(p => {
-    if (p.isAI && p.id !== currentPlayerId) {
+  return players.map(player => {
+    if (player.isAI && !player.hasAnswered) {
       const aiAnswer = generateAIAnswer(question)
-      const aiCorrect = aiAnswer === question.correctAnswerIndex
-      const aiPoints = aiCorrect ? 1 : 0
-      return { ...p, score: p.score + aiPoints }
+      return {
+        ...player,
+        hasAnswered: true,
+        selectedAnswer: aiAnswer
+      }
     }
-    return p
+    return player
   })
 }

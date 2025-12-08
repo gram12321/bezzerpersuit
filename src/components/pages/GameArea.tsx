@@ -5,6 +5,7 @@ import type { LobbyState, QuestionCategory } from '@/lib/utils/types'
 import { QUIZ_CATEGORIES } from '@/lib/utils/types'
 import { createDifficultyScore } from '@/lib/types'
 import { QUESTIONS_PER_GAME } from '@/lib/constants'
+import { calculatePlayerPointsForDisplay } from '@/lib/services'
 
 
 interface GameAreaProps {
@@ -13,7 +14,7 @@ interface GameAreaProps {
 }
 
 export function GameArea({ lobby, onExit }: GameAreaProps) {
-  const { gameState, startGame, submitAnswer, nextQuestion, endGame, selectCategory, selectDifficulty, getCurrentTurnPlayer } = useGameState(lobby)
+  const { gameState, startGame, submitAnswer, nextQuestion, endGame, selectCategory, selectDifficulty, getCurrentTurnPlayer, useIKnow } = useGameState(lobby)
 
   if (gameState.isLoading) {
     return (
@@ -84,7 +85,8 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
               <div className="space-y-2 text-sm text-slate-300">
                 <p>• Answer questions as fast as you can</p>
                 <p>• Faster answers = more points</p>
-                <p>• 15 seconds per question</p>
+                <p>• {lobby.gameOptions.questionTimeLimit} seconds per question</p>
+                <p>• {lobby.gameOptions.questionsPerGame} questions total</p>
                 <p>• Compete against {gameState.players.length - 1} opponent{gameState.players.length > 2 ? 's' : ''}</p>
               </div>
             </div>
@@ -165,7 +167,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                     </div>
                   </div>
                   <div className="text-purple-300 font-bold">
-                    {player.score}
+                    {player.score.toFixed(2)}
                   </div>
                 </div>
               ))}
@@ -220,71 +222,77 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4">
             {isCurrentPlayersTurn ? (
               <>
-                <div className="space-y-3">
-                  <h3 className="text-white font-semibold">
-                    Select Category:
-                    {gameState.selectedCategory && (
-                      <span className="ml-2 text-sm text-green-400">✓ Selected</span>
-                    )}
-                  </h3>
-                  <div className="grid gap-2">
-                    {QUIZ_CATEGORIES.map((category: QuestionCategory) => (
-                      <Button
-                        key={category}
-                        onClick={() => selectCategory(category)}
-                        className={cn(
-                          "w-full text-white text-left justify-start h-auto py-3",
-                          gameState.selectedCategory === category
-                            ? "bg-purple-600 hover:bg-purple-700 border-2 border-purple-400"
-                            : "bg-slate-700 hover:bg-slate-600"
-                        )}
-                      >
-                        {category}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <h3 className="text-white font-semibold">
-                    Select Difficulty:
-                    {gameState.selectedDifficulty && (
-                      <span className="ml-2 text-sm text-green-400">✓ Selected</span>
-                    )}
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {QUIZ_DIFFICULTY_LEVELS.map((level) => {
-                      const targetDifficulty = createDifficultyScore(level.max - 0.05)
-                      const isSelected = gameState.selectedDifficulty && 
-                        Math.abs(gameState.selectedDifficulty - targetDifficulty) < 0.01
-                      
-                      return (
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* Category Selection */}
+                  <div className="space-y-2">
+                    <h3 className="text-white font-semibold text-sm">
+                      Select Category
+                      {gameState.selectedCategory && (
+                        <span className="ml-2 text-xs text-green-400">✓</span>
+                      )}
+                    </h3>
+                    <div className="grid gap-1.5">
+                      {QUIZ_CATEGORIES.map((category: QuestionCategory) => (
                         <Button
-                          key={level.max}
-                          onClick={() => selectDifficulty(targetDifficulty)}
+                          key={category}
+                          onClick={() => selectCategory(category)}
                           className={cn(
-                            "w-full text-white text-left justify-start h-auto py-3 px-4",
-                            isSelected
-                              ? "ring-2 ring-white ring-offset-2 ring-offset-slate-900"
-                              : "",
-                            level.buttonColorClasses
+                            "w-full text-white text-left justify-start h-auto py-2 px-3 text-sm",
+                            gameState.selectedCategory === category
+                              ? "bg-purple-600 hover:bg-purple-700 border-2 border-purple-400"
+                              : "bg-slate-700 hover:bg-slate-600"
                           )}
-                          title={level.description}
                         >
-                          <div>
-                            <div className="font-semibold">{level.category}</div>
-                            <div className="text-xs opacity-80">{level.max * 100}%</div>
-                          </div>
+                          {category}
                         </Button>
-                      )
-                    })}
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Difficulty Selection */}
+                  <div className="space-y-2">
+                    <h3 className="text-white font-semibold text-sm">
+                      Select Difficulty
+                      {gameState.selectedDifficulty && (
+                        <span className="ml-2 text-xs text-green-400">✓</span>
+                      )}
+                    </h3>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {QUIZ_DIFFICULTY_LEVELS.map((level) => {
+                        const targetDifficulty = createDifficultyScore(level.max - 0.05)
+                        const isSelected = gameState.selectedDifficulty && 
+                          Math.abs(gameState.selectedDifficulty - targetDifficulty) < 0.01
+                        
+                        return (
+                          <Button
+                            key={level.max}
+                            onClick={() => selectDifficulty(targetDifficulty)}
+                            className={cn(
+                              "w-full text-white text-center justify-center h-auto py-2 px-2 text-xs",
+                              isSelected
+                                ? "ring-2 ring-white ring-offset-2 ring-offset-slate-900"
+                                : "",
+                              level.buttonColorClasses
+                            )}
+                            title={level.description}
+                          >
+                            <div>
+                              <div className="font-semibold">{level.category}</div>
+                              <div className="text-[10px] opacity-80">{level.max * 100}%</div>
+                            </div>
+                          </Button>
+                        )
+                      })}
+                    </div>
                   </div>
                 </div>
+                
                 {gameState.selectedCategory && gameState.selectedDifficulty && (
-                  <div className="text-center py-3 px-4 bg-green-600/20 border border-green-600/50 rounded-lg">
-                    <p className="text-green-300 font-semibold">
+                  <div className="text-center py-2 px-4 bg-green-600/20 border border-green-600/50 rounded-lg">
+                    <p className="text-green-300 font-semibold text-sm">
                       ✓ Selection complete! Loading question...
                     </p>
                   </div>
@@ -319,37 +327,46 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {gameState.players
                 .sort((a, b) => b.score - a.score)
-                .map((player, index) => (
-                <div 
-                  key={player.id}
-                  className={cn(
-                    "flex items-center gap-2 p-3 rounded-lg",
-                    player.id === gameState.currentPlayerId 
-                      ? "bg-purple-600/30 border border-purple-500/50" 
-                      : "bg-slate-700/30"
-                  )}
-                >
-                  <div className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
-                    index === 0 && "bg-yellow-500/30 text-yellow-300",
-                    index === 1 && "bg-slate-400/30 text-slate-300",
-                    index === 2 && "bg-orange-700/30 text-orange-300",
-                    index > 2 && "bg-slate-600/30 text-slate-400"
-                  )}>
-                    {index + 1}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className={cn(
-                      "text-sm font-semibold truncate",
-                      player.id === gameState.currentPlayerId ? "text-purple-200" : "text-white"
-                    )}>
-                      {player.name}
-                      {player.isAI && ' 🤖'}
+                .map((player, index) => {
+                  const isTurnPlayer = player.id === currentTurnPlayer?.id
+                  return (
+                    <div 
+                      key={player.id}
+                      className={cn(
+                        "flex items-center gap-2 p-3 rounded-lg relative",
+                        player.id === gameState.currentPlayerId 
+                          ? "bg-purple-600/30 border border-purple-500/50" 
+                          : "bg-slate-700/30",
+                        isTurnPlayer && "ring-2 ring-yellow-500/50"
+                      )}
+                    >
+                      {isTurnPlayer && (
+                        <div className="absolute -top-2 -right-2 bg-yellow-500 rounded-full w-6 h-6 flex items-center justify-center text-xs">
+                          👑
+                        </div>
+                      )}
+                      <div className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold",
+                        index === 0 && "bg-yellow-500/30 text-yellow-300",
+                        index === 1 && "bg-slate-400/30 text-slate-300",
+                        index === 2 && "bg-orange-700/30 text-orange-300",
+                        index > 2 && "bg-slate-600/30 text-slate-400"
+                      )}>
+                        {index + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className={cn(
+                          "text-sm font-semibold truncate",
+                          player.id === gameState.currentPlayerId ? "text-purple-200" : "text-white"
+                        )}>
+                        {player.name}
+                        {player.isAI && ' 🤖'}
+                      </div>
+                      <div className="text-xs text-slate-400">{player.score.toFixed(2)} pts</div>
+                      </div>
                     </div>
-                    <div className="text-xs text-slate-400">{player.score} pts</div>
-                  </div>
-                </div>
-              ))}
+                  )
+                })}
             </div>
           </CardContent>
         </Card>
@@ -405,8 +422,8 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                   )}>
                     {QUIZ_DIFFICULTY_LEVELS.find(l => currentQuestion.difficulty <= l.max)?.category || 'Unknown'}
                   </span>
-                  <span className="text-xs px-2 py-1 rounded bg-blue-600/30 text-blue-300">
-                    {currentTurnPlayer?.name}'s Turn
+                  <span className="text-xs px-3 py-1 rounded bg-gradient-to-r from-yellow-600 to-yellow-500 text-white font-semibold border border-yellow-400/50">
+                    👑 Turn Player: {currentTurnPlayer?.name}
                   </span>
                 </div>
                 <CardTitle className="text-2xl text-white">
@@ -417,6 +434,25 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                     ? "Get it right to score! Others can't score if you're correct." 
                     : "Answer correctly to score if the turn player is wrong!"}
                 </p>
+                {/* Show I KNOW usage indicator */}
+                {(() => {
+                  const iKnowPlayers = gameState.players.filter(p => p.usedIKnowThisRound)
+                  if (iKnowPlayers.length === 0) return null
+                  
+                  return (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-xs font-bold text-orange-400 animate-pulse">⚡ I KNOW! ACTIVE:</span>
+                      {iKnowPlayers.map(player => (
+                        <span 
+                          key={player.id}
+                          className="text-xs px-2 py-1 rounded bg-gradient-to-r from-orange-600 to-red-600 text-white font-semibold border border-orange-400"
+                        >
+                          {player.name} {player.isAI && '🤖'}
+                        </span>
+                      ))}
+                    </div>
+                  )
+                })()}
               </div>
               <Button 
                 onClick={endGame}
@@ -428,31 +464,120 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
               </Button>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-4">
+            {/* I KNOW Button for non-turn players */}
+            {!isCurrentPlayersTurn && gameState.gamePhase === 'answering' && (
+              <div className="flex justify-center">
+                {(() => {
+                  const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayerId)
+                  const powerupsLeft = currentPlayer?.iKnowPowerupsRemaining || 0
+                  const usedThisRound = currentPlayer?.usedIKnowThisRound || false
+                  const hasAnswered = currentPlayer?.hasAnswered || false
+                  
+                  if (usedThisRound) {
+                    return (
+                      <div className="px-4 py-2 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 text-white font-bold border-2 border-orange-400">
+                        ⚡ I KNOW! ACTIVE ⚡
+                      </div>
+                    )
+                  }
+                  
+                  return (
+                    <Button
+                      onClick={() => useIKnow(gameState.currentPlayerId)}
+                      disabled={powerupsLeft === 0 || hasAnswered}
+                      className={cn(
+                        "px-6 py-3 font-bold text-lg",
+                        powerupsLeft > 0 && !hasAnswered
+                          ? "bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white border-2 border-orange-300 shadow-lg"
+                          : "bg-slate-600 text-slate-400 cursor-not-allowed"
+                      )}
+                    >
+                      ⚡ I KNOW! ({powerupsLeft} left)
+                    </Button>
+                  )
+                })()}
+              </div>
+            )}
+            
             {currentQuestion.answers.map((answer, index) => {
               const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayerId)
               const hasPlayerAnswered = currentPlayer?.hasAnswered || false
               
+              // Find ALL players who selected this answer (including current player)
+              const playersWhoSelectedThis = gameState.players.filter(
+                p => p.selectedAnswer === index
+              )
+              
               return (
-                <Button
-                  key={index}
-                  onClick={() => !hasPlayerAnswered && submitAnswer(index, gameState.currentPlayerId)}
-                  disabled={hasPlayerAnswered || gameState.gamePhase === 'results'}
-                  className={cn(
-                    "w-full justify-start text-left h-auto py-4 px-6 text-base",
-                    !hasPlayerAnswered && gameState.gamePhase === 'answering' && "bg-slate-700 hover:bg-slate-600 text-white",
-                    hasPlayerAnswered && currentPlayer?.selectedAnswer === index && "bg-blue-600 hover:bg-blue-600 text-white",
-                    gameState.gamePhase === 'results' && index === currentQuestion.correctAnswerIndex && "bg-green-600 hover:bg-green-600 text-white",
-                    gameState.gamePhase === 'results' && index === currentPlayer?.selectedAnswer && index !== currentQuestion.correctAnswerIndex && "bg-red-600 hover:bg-red-600 text-white",
-                    gameState.gamePhase === 'results' && index !== currentQuestion.correctAnswerIndex && index !== currentPlayer?.selectedAnswer && "bg-slate-700/50 text-slate-400"
+                <div key={index} className="space-y-1">
+                  <div className="flex gap-2 items-center">
+                    <Button
+                      onClick={() => !hasPlayerAnswered && submitAnswer(index, gameState.currentPlayerId)}
+                      disabled={hasPlayerAnswered || gameState.gamePhase === 'results'}
+                      className={cn(
+                        "flex-1 justify-start text-left h-auto py-4 px-6 text-base",
+                        !hasPlayerAnswered && gameState.gamePhase === 'answering' && "bg-slate-700 hover:bg-slate-600 text-white",
+                        hasPlayerAnswered && currentPlayer?.selectedAnswer === index && "bg-blue-600 hover:bg-blue-600 text-white",
+                        gameState.gamePhase === 'results' && index === currentQuestion.correctAnswerIndex && "bg-green-600 hover:bg-green-600 text-white",
+                        gameState.gamePhase === 'results' && index === currentPlayer?.selectedAnswer && index !== currentQuestion.correctAnswerIndex && "bg-red-600 hover:bg-red-600 text-white",
+                        gameState.gamePhase === 'results' && index !== currentQuestion.correctAnswerIndex && index !== currentPlayer?.selectedAnswer && "bg-slate-700/50 text-slate-400"
+                      )}
+                    >
+                      <span className="mr-3 font-bold">{String.fromCharCode(65 + index)}.</span>
+                      {answer}
+                    </Button>
+                    
+                    {/* Show player avatars who selected this answer */}
+                    {playersWhoSelectedThis.length > 0 && (hasPlayerAnswered || gameState.gamePhase === 'results') && (
+                      <div className="flex gap-1 items-center">
+                        {playersWhoSelectedThis.map(player => {
+                          const isTurnPlayer = player.id === currentTurnPlayer?.id
+                          const isCurrentUser = player.id === gameState.currentPlayerId
+                          const usedIKnow = player.usedIKnowThisRound
+                          return (
+                            <div
+                              key={player.id}
+                              className={cn(
+                                "flex items-center gap-1 px-2 py-1 rounded text-xs font-medium whitespace-nowrap",
+                                isCurrentUser && "bg-purple-600/50 text-purple-100 border border-purple-400",
+                                !isCurrentUser && gameState.gamePhase === 'results' && index === currentQuestion.correctAnswerIndex && "bg-green-600/50 text-green-100",
+                                !isCurrentUser && gameState.gamePhase === 'results' && index !== currentQuestion.correctAnswerIndex && "bg-red-600/50 text-red-100",
+                                !isCurrentUser && gameState.gamePhase === 'answering' && "bg-slate-600/50 text-slate-200",
+                                isTurnPlayer && "ring-1 ring-yellow-400",
+                                usedIKnow && !isTurnPlayer && "ring-2 ring-orange-400 bg-gradient-to-r from-orange-600/30 to-red-600/30"
+                              )}
+                              title={player.name}
+                            >
+                              {usedIKnow && !isTurnPlayer && <span className="animate-pulse">⚡</span>}
+                              {isTurnPlayer && <span>👑</span>}
+                              <span>{player.name}</span>
+                              {player.isAI && <span>🤖</span>}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  {/* Show other players who selected this answer after current player has answered */}
+                  {hasPlayerAnswered && gameState.gamePhase === 'answering' && playersWhoSelectedThis.length > 0 && false && (
+                    <div className="flex gap-1 flex-wrap pl-6">
+                      {playersWhoSelectedThis.map(player => {
+                        const isTurnPlayer = player.id === currentTurnPlayer?.id
+                        return (
+                          <span
+                            key={player.id}
+                            className="text-xs px-2 py-1 rounded bg-slate-600/50 text-slate-300 flex items-center gap-1"
+                          >
+                            {isTurnPlayer && '👑'}
+                            {player.name}
+                            {player.isAI && ' 🤖'}
+                          </span>
+                        )
+                      })}
+                    </div>
                   )}
-                >
-                  <span className="mr-3 font-bold">{String.fromCharCode(65 + index)}.</span>
-                  {answer}
-                  {hasPlayerAnswered && currentPlayer?.selectedAnswer === index && gameState.gamePhase === 'answering' && (
-                    <span className="ml-auto text-xs">✓ Your Answer</span>
-                  )}
-                </Button>
+                </div>
               )
             })}
             
@@ -475,35 +600,101 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                     {gameState.players.map((player, index) => {
                       const isCorrect = player.selectedAnswer === currentQuestion.correctAnswerIndex
                       const isTurnPlayer = index === gameState.currentTurnPlayerIndex
-                      const earnedPoint = isTurnPlayer 
-                        ? isCorrect 
-                        : (!gameState.players[gameState.currentTurnPlayerIndex].selectedAnswer || 
-                           gameState.players[gameState.currentTurnPlayerIndex].selectedAnswer !== currentQuestion.correctAnswerIndex) && isCorrect
+                      const turnPlayerCorrect = gameState.players[gameState.currentTurnPlayerIndex].selectedAnswer === currentQuestion.correctAnswerIndex
+                      const basePoints = parseFloat((1 + currentQuestion.difficulty).toFixed(2))
+                      const difficultyBonus = parseFloat(currentQuestion.difficulty.toFixed(2))
+                      
+                      // Calculate points using business logic service
+                      const pointsEarned = calculatePlayerPointsForDisplay(
+                        player,
+                        index,
+                        gameState.players,
+                        gameState.currentTurnPlayerIndex,
+                        currentQuestion
+                      )
+                      
+                      // Count how many others got it right for explanation
+                      const othersCorrect = isTurnPlayer
+                        ? gameState.players.filter((p, i) => i !== index && p.selectedAnswer === currentQuestion.correctAnswerIndex).length
+                        : gameState.players.filter((p, i) => i !== gameState.currentTurnPlayerIndex && i !== index && p.selectedAnswer === currentQuestion.correctAnswerIndex).length
+                      
+                      // Generate explanation with icons
+                      const usedIKnow = player.usedIKnowThisRound
+                      let explanation = ''
+                      
+                      if (!isCorrect) {
+                        if (usedIKnow && !isTurnPlayer) {
+                          if (turnPlayerCorrect) {
+                            explanation = '❌⚡ Wrong with I KNOW! (Turn player correct - no penalty)'
+                          } else {
+                            explanation = '❌⚡ Wrong with I KNOW! (DOUBLE penalty)'
+                          }
+                        } else {
+                          explanation = '❌ Wrong answer'
+                        }
+                      } else if (isTurnPlayer) {
+                        if (othersCorrect === 0) {
+                          explanation = `⭐ Point for correct answer: 1 • Bonus for difficulty: ${difficultyBonus}`
+                        } else {
+                          const percentage = Math.round((1 - (pointsEarned / basePoints)) * 100)
+                          explanation = `Point for correct answer: 1 • Bonus for difficulty: ${difficultyBonus} • ${othersCorrect} other${othersCorrect > 1 ? 's' : ''} also correct (-${percentage}%)`
+                        }
+                      } else {
+                        if (!turnPlayerCorrect) {
+                          if (usedIKnow) {
+                            explanation = `⚡💎 I KNOW! bonus (2x points!) • Point: 1 • Bonus: ${difficultyBonus} • Doubled!`
+                          } else if (othersCorrect === 0) {
+                            explanation = `💎 Stole full points! • Point: 1 • Bonus: ${difficultyBonus}`
+                          } else {
+                            const percentage = Math.round((1 - (pointsEarned / basePoints)) * 100)
+                            explanation = `Point: 1 • Bonus: ${difficultyBonus} • ${othersCorrect} other${othersCorrect > 1 ? 's' : ''} also stole (-${percentage}%)`
+                          }
+                        } else {
+                          explanation = '🚫 Turn player was correct'
+                        }
+                      }
                       
                       return (
                         <div 
                           key={player.id}
                           className={cn(
-                            "flex items-center justify-between p-2 rounded",
-                            player.id === gameState.currentPlayerId ? "bg-purple-600/30" : "bg-slate-800/30"
+                            "p-2 rounded",
+                            player.id === gameState.currentPlayerId ? "bg-purple-600/30" : "bg-slate-800/30",
+                            isTurnPlayer && "ring-2 ring-yellow-500/50"
                           )}
                         >
-                          <div className="flex items-center gap-2">
-                            <span className="text-white font-medium">
-                              {player.name}
-                              {player.isAI && ' 🤖'}
-                              {isTurnPlayer && ' 👑'}
-                            </span>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              {isTurnPlayer && <span className="text-yellow-400">👑</span>}
+                              <span className="text-white font-medium">
+                                {player.name}
+                                {player.isAI && ' 🤖'}
+                              </span>
+                              <span className={cn(
+                                "text-xs px-2 py-1 rounded",
+                                isCorrect ? "bg-green-600/30 text-green-300" : "bg-red-600/30 text-red-300"
+                              )}>
+                                {isCorrect ? '✓' : '✗'}
+                              </span>
+                              {player.selectedAnswer !== undefined && (
+                                <span className="text-xs text-slate-400">
+                                  ({String.fromCharCode(65 + player.selectedAnswer)})
+                                </span>
+                              )}
+                            </div>
                             <span className={cn(
-                              "text-xs px-2 py-1 rounded",
-                              isCorrect ? "bg-green-600/30 text-green-300" : "bg-red-600/30 text-red-300"
+                              "font-bold",
+                              pointsEarned > 0.001 ? "text-green-400" : pointsEarned < -0.001 ? "text-red-400" : "text-purple-300"
                             )}>
-                              {isCorrect ? '✓' : '✗'}
+                              {Math.abs(pointsEarned) > 0.001 
+                                ? (pointsEarned > 0 ? `+${pointsEarned.toFixed(2)}` : pointsEarned.toFixed(2))
+                                : '—'
+                              }
                             </span>
                           </div>
-                          <span className="text-purple-300 font-bold">
-                            {earnedPoint ? '+1' : '—'}
-                          </span>
+                          <div className="text-xs text-slate-400 mt-1 ml-6">
+                            {explanation}
+                          </div>
                         </div>
                       )
                     })}

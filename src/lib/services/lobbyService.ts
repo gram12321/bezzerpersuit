@@ -1,4 +1,10 @@
-import type { LobbyState, Player } from '@/lib/utils/types'
+import type { LobbyState, Player, GameOptions } from '@/lib/utils/types'
+import { 
+  QUESTIONS_PER_GAME, 
+  QUESTION_TIME_LIMIT, 
+  SELECTION_TIME_LIMIT, 
+  I_KNOW_POWERUPS_PER_PLAYER 
+} from '@/lib/constants'
 
 /**
  * Lobby Service - Business logic for managing game lobbies
@@ -23,7 +29,13 @@ export function createLobby(hostPlayer: Player): LobbyState {
     players: [hostPlayer],
     maxPlayers: 4,
     isStarted: false,
-    createdAt: new Date()
+    createdAt: new Date(),
+    gameOptions: {
+      questionsPerGame: QUESTIONS_PER_GAME,
+      questionTimeLimit: QUESTION_TIME_LIMIT,
+      selectionTimeLimit: SELECTION_TIME_LIMIT,
+      iKnowPowerupsPerPlayer: I_KNOW_POWERUPS_PER_PLAYER
+    }
   }
 }
 
@@ -149,6 +161,19 @@ export function areAllPlayersReady(lobby: LobbyState): boolean {
  */
 export function canStartGame(lobby: LobbyState): boolean {
   return lobby.players.length >= 2 && lobby.players.length <= 4 && areAllPlayersReady(lobby)
+}
+
+/**
+ * Update game options (host only)
+ */
+export function updateGameOptions(lobby: LobbyState, options: Partial<GameOptions>): LobbyState {
+  return {
+    ...lobby,
+    gameOptions: {
+      ...lobby.gameOptions,
+      ...options
+    }
+  }
 }
 
 /**

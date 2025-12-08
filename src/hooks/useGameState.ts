@@ -1,9 +1,17 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Question, Player, LobbyState, GamePhase, QuestionCategory, DifficultyScore } from '@/lib/utils/types'
-import { QUIZ_CATEGORIES } from '@/lib/utils/types'
-import { fetchRandomQuestions, calculateAdaptiveDifficulty } from '@/lib/services'
-import { updateQuestionStats, getQuestionStats } from '@/database'
-import { QUESTIONS_PER_GAME, SELECTION_TIME_LIMIT } from '@/lib/constants'
+import { fetchRandomQuestions, updateQuestionStatsFromPlayers } from '@/lib/services'
+import { 
+  haveAllPlayersAnswered, 
+  getNextTurnPlayerIndex, 
+  isLastQuestion, 
+  autoSubmitUnansweredPlayers,
+  resetPlayerAnswers,
+  updatePlayerAnswer
+} from '@/lib/services/gameService'
+import { applyScores, isAnswerCorrect } from '@/lib/services/scoringService'
+import { selectAICategory, selectAIDifficulty, generateAIAnswers } from '@/lib/ai/aiLogic'
+import { QUESTIONS_PER_GAME, QUESTION_TIME_LIMIT, SELECTION_TIME_LIMIT, I_KNOW_POWERUPS_PER_PLAYER } from '@/lib/constants'
 
 export interface GameState {
   currentQuestionIndex: number
@@ -29,8 +37,8 @@ export function useGameState(initialLobby?: LobbyState) {
   const [gameState, setGameState] = useState<GameState>({
     currentQuestionIndex: 0,
     score: 0,
-    timeRemaining: 15,
-    selectionTimeRemaining: SELECTION_TIME_LIMIT,
+    timeRemaining: initialLobby?.gameOptions.questionTimeLimit || QUESTION_TIME_LIMIT,
+    selectionTimeRemaining: initialLobby?.gameOptions.selectionTimeLimit || SELECTION_TIME_LIMIT,
     isGameActive: false,
     isLoading: false,
     error: null,
@@ -50,12 +58,15 @@ export function useGameState(initialLobby?: LobbyState) {
     setGameState(prev => {
       const players = lobby?.players || prev.players
       const currentPlayerId = lobby?.players.find(p => !p.isAI)?.id || prev.currentPlayerId
+      const questionTimeLimit = lobby?.gameOptions.questionTimeLimit || QUESTION_TIME_LIMIT
+      const selectionTimeLimit = lobby?.gameOptions.selectionTimeLimit || SELECTION_TIME_LIMIT
+      const iKnowPowerups = lobby?.gameOptions.iKnowPowerupsPerPlayer ?? I_KNOW_POWERUPS_PER_PLAYER
       
       return {
         currentQuestionIndex: 0,
         score: 0,
-        timeRemaining: 15,
-        selectionTimeRemaining: SELECTION_TIME_LIMIT,
+        timeRemaining: questionTimeLimit,
+        selectionTimeRemaining: selectionTimeLimit,
         isGameActive: true,
         isLoading: false,
         error: null,
@@ -63,7 +74,13 @@ export function useGameState(initialLobby?: LobbyState) {
         showResult: false,
         isCorrect: false,
         questions: [],
-        players: players.map(p => ({ ...p, hasAnswered: false, selectedAnswer: undefined })),
+        players: players.map(p => ({ 
+          ...p, 
+          hasAnswered: false, 
+          selectedAnswer: undefined,
+          iKnowPowerupsRemaining: iKnowPowerups,
+          usedIKnowThisRound: false
+        })),
         currentPlayerId,
         gamePhase: 'category-selection' as GamePhase,
         currentTurnPlayerIndex: 0,
@@ -80,16 +97,15 @@ export function useGameState(initialLobby?: LobbyState) {
     const timer = setInterval(() => {
       setGameState(prev => {
         if (prev.selectionTimeRemaining <= 1) {
-          // Time's up - auto-select randomly
-          const randomCategory = QUIZ_CATEGORIES[Math.floor(Math.random() * QUIZ_CATEGORIES.length)]
-          const randomDifficulty = 0.3 + Math.random() * 0.4
+          // Time's up - auto-select randomly using AI logic
+          const randomCategory = selectAICategory()
+          const randomDifficulty = selectAIDifficulty()
           
-          // This will trigger the effect below to load the question
           return {
             ...prev,
             selectionTimeRemaining: 0,
             selectedCategory: randomCategory,
-            selectedDifficulty: randomDifficulty as DifficultyScore
+            selectedDifficulty: randomDifficulty
           }
         }
         return { ...prev, selectionTimeRemaining: prev.selectionTimeRemaining - 1 }
@@ -106,13 +122,13 @@ export function useGameState(initialLobby?: LobbyState) {
     const currentTurnPlayer = gameState.players[gameState.currentTurnPlayerIndex]
     if (!currentTurnPlayer?.isAI) return
 
-    const randomCategory = QUIZ_CATEGORIES[Math.floor(Math.random() * QUIZ_CATEGORIES.length)]
-    const randomDifficulty = 0.3 + Math.random() * 0.4 // 0.3 to 0.7
+    const aiCategory = selectAICategory()
+    const aiDifficulty = selectAIDifficulty()
     
     setGameState(prev => ({ 
       ...prev, 
-      selectedCategory: randomCategory,
-      selectedDifficulty: randomDifficulty as DifficultyScore
+      selectedCategory: aiCategory,
+      selectedDifficulty: aiDifficulty
     }))
   }, [gameState.isGameActive, gameState.gamePhase, gameState.currentTurnPlayerIndex])
 
@@ -134,9 +150,9 @@ export function useGameState(initialLobby?: LobbyState) {
           isLoading: false,
           questions: [...prev.questions, questions[0]],
           gamePhase: 'answering' as GamePhase,
-          timeRemaining: 15,
-          selectionTimeRemaining: SELECTION_TIME_LIMIT,
-          players: prev.players.map(p => ({ ...p, hasAnswered: false, selectedAnswer: undefined }))
+          timeRemaining: initialLobby?.gameOptions.questionTimeLimit || QUESTION_TIME_LIMIT,
+          selectionTimeRemaining: initialLobby?.gameOptions.selectionTimeLimit || SELECTION_TIME_LIMIT,
+          players: resetPlayerAnswers(prev.players)
         }))
       })
       .catch(error => {
@@ -149,28 +165,17 @@ export function useGameState(initialLobby?: LobbyState) {
       })
   }, [gameState.selectedCategory, gameState.selectedDifficulty, gameState.gamePhase, gameState.isGameActive])
 
+  // AI players auto-answer immediately when question loads
   useEffect(() => {
     if (!gameState.isGameActive || gameState.gamePhase !== 'answering') return
 
     const currentQuestion = gameState.questions[gameState.currentQuestionIndex]
     if (!currentQuestion) return
 
-    // AI players auto-answer immediately
-    setGameState(prev => {
-      // Make AI players answer
-      const updatedPlayers = prev.players.map(p => {
-        if (p.isAI && !p.hasAnswered) {
-          // AI answers based on difficulty
-          const aiAnswer = Math.random() < (1 - currentQuestion.difficulty) 
-            ? currentQuestion.correctAnswerIndex 
-            : Math.floor(Math.random() * currentQuestion.answers.length)
-          return { ...p, hasAnswered: true, selectedAnswer: aiAnswer }
-        }
-        return p
-      })
-
-      return { ...prev, players: updatedPlayers }
-    })
+    setGameState(prev => ({
+      ...prev,
+      players: generateAIAnswers(prev.players, currentQuestion)
+    }))
   }, [gameState.isGameActive, gameState.gamePhase, gameState.currentQuestionIndex])
 
   useEffect(() => {
@@ -182,26 +187,17 @@ export function useGameState(initialLobby?: LobbyState) {
           const currentQuestion = prev.questions[prev.currentQuestionIndex]
           
           // Auto-submit for players who haven't answered
-          const finalPlayers = prev.players.map(p => {
-            if (!p.hasAnswered) {
-              return { ...p, hasAnswered: true, selectedAnswer: 0 }
-            }
-            return p
-          })
+          const finalPlayers = autoSubmitUnansweredPlayers(prev.players)
 
-          // Calculate scores
+          // Calculate scores using service
+          const scoredPlayers = applyScores(
+            finalPlayers,
+            prev.currentTurnPlayerIndex,
+            currentQuestion
+          )
+
           const turnPlayerAnswer = finalPlayers[prev.currentTurnPlayerIndex].selectedAnswer!
-          const turnPlayerCorrect = turnPlayerAnswer === currentQuestion.correctAnswerIndex
-
-          const scoredPlayers = finalPlayers.map((p, index) => {
-            if (index === prev.currentTurnPlayerIndex) {
-              return { ...p, score: p.score + (turnPlayerCorrect ? 1 : 0) }
-            } else {
-              const playerCorrect = p.selectedAnswer === currentQuestion.correctAnswerIndex
-              const earnedPoints = !turnPlayerCorrect && playerCorrect ? 1 : 0
-              return { ...p, score: p.score + earnedPoints }
-            }
-          })
+          const turnPlayerCorrect = isAnswerCorrect(turnPlayerAnswer, currentQuestion)
 
           return {
             ...prev,
@@ -223,80 +219,35 @@ export function useGameState(initialLobby?: LobbyState) {
   const submitAnswer = useCallback((answerIndex: number, playerId: string) => {
     setGameState(prev => {
       const currentQuestion = prev.questions[prev.currentQuestionIndex]
-      const isCorrect = answerIndex === currentQuestion.correctAnswerIndex
+      const correct = isAnswerCorrect(answerIndex, currentQuestion)
       const isAnsweringPlayer = playerId === prev.currentPlayerId
 
-      // Update player's answer
-      const updatedPlayers = prev.players.map(p => {
-        if (p.id === playerId) {
-          return { ...p, hasAnswered: true, selectedAnswer: answerIndex }
-        }
-        return p
-      })
+      // Update player's answer using service
+      const updatedPlayers = updatePlayerAnswer(prev.players, playerId, answerIndex)
 
       // Check if all players have answered
-      const allAnswered = updatedPlayers.every(p => p.hasAnswered)
+      const allAnswered = haveAllPlayersAnswered(updatedPlayers)
 
       if (allAnswered) {
-        // Calculate scores based on turn-based rules
-        const turnPlayerAnswer = updatedPlayers[prev.currentTurnPlayerIndex].selectedAnswer!
-        const turnPlayerCorrect = turnPlayerAnswer === currentQuestion.correctAnswerIndex
+        // Calculate scores using service
+        const scoredPlayers = applyScores(
+          updatedPlayers,
+          prev.currentTurnPlayerIndex,
+          currentQuestion
+        )
 
-        const scoredPlayers = updatedPlayers.map((p, index) => {
-          if (index === prev.currentTurnPlayerIndex) {
-            // Turn player always gets points if correct
-            return { ...p, score: p.score + (turnPlayerCorrect ? 1 : 0) }
-          } else {
-            // Other players only get points if turn player was wrong AND they are correct
-            const playerCorrect = p.selectedAnswer === currentQuestion.correctAnswerIndex
-            const earnedPoints = !turnPlayerCorrect && playerCorrect ? 1 : 0
-            return { ...p, score: p.score + earnedPoints }
-          }
-        })
-
-        // Update question difficulty based on HUMAN player performance only (exclude AI)
-        const humanPlayers = scoredPlayers.filter(p => !p.isAI)
-        const humanPlayersCorrect = humanPlayers.filter(p => p.selectedAnswer === currentQuestion.correctAnswerIndex).length
-        const humanPlayersIncorrect = humanPlayers.length - humanPlayersCorrect
-
-        if (humanPlayers.length > 0) {
-          // Update difficulty using adaptive algorithm (fire and forget - don't block UI)
-          getQuestionStats(currentQuestion.id)
-            .then(stats => {
-              const update = calculateAdaptiveDifficulty(
-                stats.difficulty,
-                {
-                  correct_count: stats.correct_count,
-                  incorrect_count: stats.incorrect_count,
-                  recent_history: stats.recent_history
-                },
-                humanPlayersCorrect,
-                humanPlayersIncorrect
-              )
-
-              const newCorrectCount = stats.correct_count + humanPlayersCorrect
-              const newIncorrectCount = stats.incorrect_count + humanPlayersIncorrect
-              const newHistory = [...stats.recent_history, ...Array(humanPlayersCorrect).fill(true), ...Array(humanPlayersIncorrect).fill(false)].slice(-10)
-
-              return updateQuestionStats(
-                currentQuestion.id,
-                update.newDifficulty,
-                newCorrectCount,
-                newIncorrectCount,
-                newHistory
-              )
-            })
-            .catch(error => {
-              console.error('Failed to update question difficulty:', error)
-            })
-        }
+        // Update question stats (fire and forget - don't block UI)
+        updateQuestionStatsFromPlayers(currentQuestion, scoredPlayers)
+          .catch(error => {
+            console.error('Failed to update question stats:', error)
+          })
 
         return {
           ...prev,
           selectedAnswer: answerIndex,
           showResult: true,
-          isCorrect: isAnsweringPlayer ? isCorrect : false,
-          score: isAnsweringPlayer && isCorrect ? prev.score + 1 : prev.score,
+          isCorrect: isAnsweringPlayer ? correct : false,
+          score: isAnsweringPlayer && correct ? prev.score + 1 : prev.score,
           players: scoredPlayers,
           gamePhase: 'results' as GamePhase
         }
@@ -312,34 +263,34 @@ export function useGameState(initialLobby?: LobbyState) {
 
   const nextQuestion = useCallback(() => {
     setGameState(prev => {
-      const isLastQuestion = prev.currentQuestionIndex >= QUESTIONS_PER_GAME - 1
-      
-      if (isLastQuestion) {
+      const questionsPerGame = initialLobby?.gameOptions.questionsPerGame || QUESTIONS_PER_GAME
+      if (isLastQuestion(prev.currentQuestionIndex, questionsPerGame)) {
         return {
           ...prev,
           isGameActive: false
         }
       }
 
-      // Move to next turn player
-      const nextTurnPlayerIndex = (prev.currentTurnPlayerIndex + 1) % prev.players.length
+      const nextTurnPlayerIndex = getNextTurnPlayerIndex(prev.currentTurnPlayerIndex, prev.players.length)
+      const questionTimeLimit = initialLobby?.gameOptions.questionTimeLimit || QUESTION_TIME_LIMIT
+      const selectionTimeLimit = initialLobby?.gameOptions.selectionTimeLimit || SELECTION_TIME_LIMIT
 
       return {
         ...prev,
         currentQuestionIndex: prev.currentQuestionIndex + 1,
         currentTurnPlayerIndex: nextTurnPlayerIndex,
         gamePhase: 'category-selection' as GamePhase,
-        timeRemaining: 15,
-        selectionTimeRemaining: SELECTION_TIME_LIMIT,
+        timeRemaining: questionTimeLimit,
+        selectionTimeRemaining: selectionTimeLimit,
         selectedAnswer: null,
         showResult: false,
         isCorrect: false,
         selectedCategory: null,
         selectedDifficulty: null,
-        players: prev.players.map(p => ({ ...p, hasAnswered: false, selectedAnswer: undefined }))
+        players: resetPlayerAnswers(prev.players).map(p => ({ ...p, usedIKnowThisRound: false }))
       }
     })
-  }, [])
+  }, [initialLobby])
 
   const endGame = useCallback(() => {
     setGameState(prev => ({
@@ -360,6 +311,37 @@ export function useGameState(initialLobby?: LobbyState) {
     return gameState.players[gameState.currentTurnPlayerIndex]
   }, [gameState.players, gameState.currentTurnPlayerIndex])
 
+  const useIKnow = useCallback((playerId: string) => {
+    setGameState(prev => {
+      const player = prev.players.find(p => p.id === playerId)
+      
+      // Validation checks
+      if (!player || player.id === prev.players[prev.currentTurnPlayerIndex].id) {
+        return prev // Can't use if you're the turn player
+      }
+      if ((player.iKnowPowerupsRemaining || 0) <= 0) {
+        return prev // No powerups left
+      }
+      if (player.usedIKnowThisRound) {
+        return prev // Already used this round
+      }
+      
+      // Use the powerup
+      return {
+        ...prev,
+        players: prev.players.map(p => 
+          p.id === playerId 
+            ? { 
+                ...p, 
+                usedIKnowThisRound: true,
+                iKnowPowerupsRemaining: (p.iKnowPowerupsRemaining || 0) - 1
+              }
+            : p
+        )
+      }
+    })
+  }, [])
+
   return {
     gameState,
     startGame,
@@ -368,6 +350,7 @@ export function useGameState(initialLobby?: LobbyState) {
     endGame,
     selectCategory,
     selectDifficulty,
-    getCurrentTurnPlayer
+    getCurrentTurnPlayer,
+    useIKnow
   }
 }

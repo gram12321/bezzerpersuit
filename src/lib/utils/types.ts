@@ -61,6 +61,18 @@ export interface Player {
   avatar?: string
   hasAnswered?: boolean
   selectedAnswer?: number
+  iKnowPowerupsRemaining?: number
+  usedIKnowThisRound?: boolean
+}
+
+/**
+ * Configurable game options
+ */
+export interface GameOptions {
+  questionsPerGame: number
+  questionTimeLimit: number
+  selectionTimeLimit: number
+  iKnowPowerupsPerPlayer: number
 }
 
 /**
@@ -73,4 +85,5 @@ export interface LobbyState {
   maxPlayers: number
   isStarted: boolean
   createdAt: Date
+  gameOptions: GameOptions
 }

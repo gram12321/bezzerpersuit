@@ -1,5 +1,6 @@
 export * from './questionService'
 export * from './gameService'
+export * from './scoringService'
 export * from './adminService'
 export * from './lobbyService'
 export * from './adaptiveDifficulty'
