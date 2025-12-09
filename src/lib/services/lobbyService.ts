@@ -1,4 +1,5 @@
 import type { LobbyState, Player, GameOptions } from '@/lib/utils'
+import { AI_PERSONALITIES } from '@/lib/constants'
 import { 
   QUESTIONS_PER_GAME, 
   QUESTION_TIME_LIMIT, 
@@ -9,15 +10,6 @@ import {
 /**
  * Lobby Service - Business logic for managing game lobbies
  */
-
-const AI_NAMES = [
-  'RoboQuiz',
-  'BrainBot',
-  'QuizMaster AI',
-  'Smarty McBot',
-  'The Professor',
-  'Quiz Wizard'
-]
 
 /**
  * Create a new lobby
@@ -71,45 +63,45 @@ export function removePlayerFromLobby(lobby: LobbyState, playerId: string): Lobb
   }
 }
 
+
 /**
- * Create an AI player
+ * Create an AI player with a specific personality
  */
-export function createAIPlayer(): Player {
-  const usedNames = new Set<string>()
-  
+export function createAIPlayer(personalityId?: string): Player {
+  const personality = personalityId && AI_PERSONALITIES[personalityId]
+    ? AI_PERSONALITIES[personalityId]
+    : getRandomPersonality()
   return {
     id: crypto.randomUUID(),
-    name: getUniqueName(usedNames),
+    name: personality.name,
+    avatar: personality.avatar,
     isAI: true,
     score: 0,
-    isReady: true
+    isReady: true,
+    aiPersonality: personality
   }
 }
 
-/**
- * Get a unique AI name
- */
-function getUniqueName(usedNames: Set<string>): string {
-  const availableNames = AI_NAMES.filter(name => !usedNames.has(name))
-  if (availableNames.length === 0) {
-    return `AI Player ${Math.floor(Math.random() * 1000)}`
-  }
-  const name = availableNames[Math.floor(Math.random() * availableNames.length)]
-  usedNames.add(name)
-  return name
+function getRandomPersonality(): typeof AI_PERSONALITIES[keyof typeof AI_PERSONALITIES] {
+  const keys = Object.keys(AI_PERSONALITIES)
+  const key = keys[Math.floor(Math.random() * keys.length)]
+  return AI_PERSONALITIES[key]
 }
 
 /**
  * Fill empty slots with AI players
  */
-export function fillWithAI(lobby: LobbyState): LobbyState {
-  const usedNames = new Set(lobby.players.map(p => p.name))
+
+/**
+ * Fill empty slots with AI players, optionally specifying personalities
+ */
+export function fillWithAI(lobby: LobbyState, personalityIds?: string[]): LobbyState {
   const emptySlots = lobby.maxPlayers - lobby.players.length
   const aiPlayers: Player[] = []
 
   for (let i = 0; i < emptySlots; i++) {
-    const aiPlayer = createAIPlayer()
-    aiPlayer.name = getUniqueName(usedNames)
+    const personalityId = personalityIds && personalityIds[i] ? personalityIds[i] : undefined
+    const aiPlayer = createAIPlayer(personalityId)
     aiPlayers.push(aiPlayer)
   }
 
@@ -122,14 +114,16 @@ export function fillWithAI(lobby: LobbyState): LobbyState {
 /**
  * Add a single AI player to the lobby
  */
-export function addSingleAI(lobby: LobbyState): LobbyState {
+
+/**
+ * Add a single AI player to the lobby, optionally specifying personality
+ */
+export function addSingleAI(lobby: LobbyState, personalityId?: string): LobbyState {
   if (lobby.players.length >= lobby.maxPlayers) {
     throw new Error('Lobby is full')
   }
 
-  const usedNames = new Set(lobby.players.map(p => p.name))
-  const aiPlayer = createAIPlayer()
-  aiPlayer.name = getUniqueName(usedNames)
+  const aiPlayer = createAIPlayer(personalityId)
 
   return {
     ...lobby,

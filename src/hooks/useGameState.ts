@@ -16,7 +16,7 @@ import {
   resetPlayerDifficulties
 } from '@/lib/services/gameService'
 import { applyScores, isAnswerCorrect } from '@/lib/services/scoringService'
-import { selectAICategory, selectAIDifficulty, generateAIAnswers } from '@/lib/services/ai/aiLogic'
+import { selectAICategoryAndDifficulty, generateAIAnswers, processAIBoosts } from '@/lib/services/ai/aiLogic'
 import { QUESTIONS_PER_GAME, QUESTION_TIME_LIMIT, SELECTION_TIME_LIMIT, I_KNOW_POWERUPS_PER_PLAYER } from '@/lib/utils'
 
 export interface GameState {
@@ -115,16 +115,19 @@ export function useGameState(initialLobby?: LobbyState) {
     const timer = setInterval(() => {
       setGameState(prev => {
         if (prev.selectionTimeRemaining <= 1) {
-          // Time's up - auto-select randomly using AI logic
+          // Time's up - auto-select using AI logic
           const currentPlayer = prev.players[prev.currentTurnPlayerIndex]
-          const randomCategory = selectAICategory(currentPlayer.usedCategories || [])
-          const randomDifficulty = selectAIDifficulty(currentPlayer.usedDifficulties || [])
+          const { category, difficulty } = selectAICategoryAndDifficulty(
+            currentPlayer.aiPersonality,
+            currentPlayer.usedCategories || [],
+            currentPlayer.usedDifficulties || []
+          )
           
           return {
             ...prev,
             selectionTimeRemaining: 0,
-            selectedCategory: randomCategory,
-            selectedDifficulty: randomDifficulty
+            selectedCategory: category,
+            selectedDifficulty: difficulty
           }
         }
         return { ...prev, selectionTimeRemaining: prev.selectionTimeRemaining - 1 }
@@ -148,29 +151,32 @@ export function useGameState(initialLobby?: LobbyState) {
       return
     }
 
-    const aiCategory = selectAICategory(currentTurnPlayer.usedCategories || [])
-    const aiDifficulty = selectAIDifficulty(currentTurnPlayer.usedDifficulties || [])
+    const { category, difficulty } = selectAICategoryAndDifficulty(
+      currentTurnPlayer.aiPersonality,
+      currentTurnPlayer.usedCategories || [],
+      currentTurnPlayer.usedDifficulties || []
+    )
     
     // Show category selection first
     setTimeout(() => {
       setGameState(prev => ({ 
         ...prev, 
-        currentSelectionCategory: aiCategory
+        currentSelectionCategory: category
       }))
       
       // Show difficulty selection after another delay
       setTimeout(() => {
         setGameState(prev => ({ 
           ...prev, 
-          currentSelectionDifficulty: aiDifficulty
+          currentSelectionDifficulty: difficulty
         }))
         
         // Finalize both selections after brief pause
         setTimeout(() => {
           setGameState(prev => ({ 
             ...prev, 
-            selectedCategory: aiCategory,
-            selectedDifficulty: aiDifficulty
+            selectedCategory: category,
+            selectedDifficulty: difficulty
           }))
         }, 800)
       }, 1500)
@@ -242,17 +248,24 @@ export function useGameState(initialLobby?: LobbyState) {
       })
   }, [gameState.selectedCategory, gameState.selectedDifficulty, gameState.gamePhase, gameState.isGameActive, initialLobby])
 
-  // AI players auto-answer immediately when question loads
+  // AI players decide on boost usage and auto-answer when question loads
   useEffect(() => {
     if (!gameState.isGameActive || gameState.gamePhase !== 'answering') return
 
     const currentQuestion = gameState.questions[gameState.currentQuestionIndex]
     if (!currentQuestion) return
 
-    setGameState(prev => ({
-      ...prev,
-      players: generateAIAnswers(prev.players, currentQuestion)
-    }))
+    setGameState(prev => {
+      // First, AIs decide whether to use boosts
+      let updatedPlayers = processAIBoosts(prev.players, currentQuestion, prev.currentTurnPlayerIndex)
+      // Then, AIs generate their answers
+      updatedPlayers = generateAIAnswers(updatedPlayers, currentQuestion)
+      
+      return {
+        ...prev,
+        players: updatedPlayers
+      }
+    })
   }, [gameState.isGameActive, gameState.gamePhase, gameState.currentQuestionIndex])
 
   useEffect(() => {

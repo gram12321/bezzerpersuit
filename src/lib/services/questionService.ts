@@ -11,14 +11,14 @@ export async function fetchRandomQuestions(
   turnPlayerUserId?: string
 ): Promise<Question[]> {
   try {
-    console.log('🔍 fetchRandomQuestions called:', { count, category, targetDifficulty, userIds, turnPlayerUserId })
+    // ...existing code...
     
     // Get all potential questions in category (or all questions if no category)
     const allQuestions = category 
       ? await getQuestionsWithFilters({ category })
       : await getAllQuestions()
 
-    console.log(`📚 Found ${allQuestions.length} questions in category "${category || 'ALL'}"`)
+    // ...existing code...
 
     if (allQuestions.length === 0) {
       throw new Error('No questions available in the database.')
@@ -28,14 +28,14 @@ export async function fetchRandomQuestions(
 
     // If no users provided, use simple filtering without spoilers
     if (!userIds || userIds.length === 0) {
-      console.log('👤 No userIds provided - using simple filtering')
+      // ...existing code...
       const filtered = allQuestions.filter(q => 
         Math.abs(q.difficulty - difficulty) <= 0.5
       )
       const candidates = filtered.length > 0 ? filtered : allQuestions
       const shuffled = [...candidates].sort(() => Math.random() - 0.5)
       const result = shuffled.slice(0, Math.min(count, candidates.length))
-      console.log(`✅ Returning ${result.length} questions (simple mode)`)
+      // ...existing code...
       return result
     }
 
@@ -72,12 +72,7 @@ export async function fetchRandomQuestions(
       return { ...q, combinedSpoiler }
     })
 
-    console.log(`📊 Spoiler statistics:`, {
-      total: questionsWithSpoilers.length,
-      withZeroSpoiler: questionsWithSpoilers.filter(q => q.combinedSpoiler === 0).length,
-      withLowSpoiler: questionsWithSpoilers.filter(q => q.combinedSpoiler <= 1).length,
-      avgSpoiler: (questionsWithSpoilers.reduce((sum, q) => sum + q.combinedSpoiler, 0) / questionsWithSpoilers.length).toFixed(2)
-    })
+    // ...existing code...
 
     // Define priority tiers: [difficultyTolerance, maxSpoiler]
     // Note: selectedDifficulty is the midpoint, we query with ±0.05 range (matching the 0.1 difficulty brackets)
@@ -122,31 +117,23 @@ export async function fetchRandomQuestions(
       })
 
       if (candidates.length > 0) {
-        console.log(`✅ Tier ${i + 1} matched: diffTolerance=±${diffTolerance}, maxSpoiler=${maxSpoiler === null ? 'any' : maxSpoiler}, found ${candidates.length} candidates`)
-        console.log(`   Target difficulty: ${difficulty}, acceptable range: ${(difficulty - diffTolerance).toFixed(2)}-${(difficulty + diffTolerance).toFixed(2)}`)
-        console.log(`   Candidate difficulties:`, candidates.map(q => q.difficulty.toFixed(2)).slice(0, 10).join(', '))
-        console.log(`   Selected question:`, candidates.slice(0, Math.min(count, candidates.length)).map(q => ({ id: q.id.substring(0, 8), spoiler: q.combinedSpoiler, difficulty: q.difficulty })))
-        
         // Random selection within tier
         const shuffled = [...candidates].sort(() => Math.random() - 0.5)
         const result = shuffled.slice(0, Math.min(count, candidates.length))
-        console.log(`✅ Returning ${result.length} questions from tier ${i + 1}`)
         return result
-      } else {
-        console.log(`⏭️ Tier ${i + 1} skipped: diffTolerance=±${diffTolerance}, maxSpoiler=${maxSpoiler === null ? 'any' : maxSpoiler}, no matches`)
       }
     }
 
     // If we reached here with category filter, we found questions in category but none matched tiers
     // This means all questions have been seen too much - just return them anyway (ignore spoilers)
-    console.warn(`⚠️ All questions in "${category}" have high spoiler values - returning anyway`)
+    // ...existing code...
     const shuffled = [...questionsWithSpoilers].sort(() => Math.random() - 0.5)
     const result = shuffled.slice(0, Math.min(count, questionsWithSpoilers.length))
-    console.log(`✅ Returning ${result.length} questions (fallback mode)`)
+    // ...existing code...
     return result
 
   } catch (error) {
-    console.error('❌ Error in fetchRandomQuestions:', error)
+    // ...existing code...
     throw error
   }
 }

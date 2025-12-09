@@ -19,6 +19,7 @@ export type {
   DifficultyScore,
   Question,
   Player,
+  AIPersonality,
   GameOptions,
   LobbyState,
   User,

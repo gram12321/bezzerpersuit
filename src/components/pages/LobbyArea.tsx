@@ -13,6 +13,7 @@ import {
 } from '@/lib/services'
 import { authService } from '@/lib/services'
 import { cn, getDisplayName, PLAYER_STATE_EMOJIS } from '@/lib/utils'
+import { AI_PERSONALITIES } from '@/lib/constants'
 
 interface LobbyAreaProps {
   onStartGame: (lobby: LobbyState) => void
@@ -20,6 +21,8 @@ interface LobbyAreaProps {
 }
 
 export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
+    const personalityOptions = Object.values(AI_PERSONALITIES)
+    const [selectedPersonalityId, setSelectedPersonalityId] = useState<string>(personalityOptions[0].id)
   const [lobby, setLobby] = useState<LobbyState | null>(null)
   const [currentPlayerId, setCurrentPlayerId] = useState<string>('')
 
@@ -49,12 +52,12 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
 
   const handleFillWithAI = () => {
     if (!lobby) return
-    setLobby(fillWithAI(lobby))
+    setLobby(fillWithAI(lobby)) // Fills with random personalities
   }
 
   const handleAddSingleAI = () => {
     if (!lobby) return
-    setLobby(addSingleAI(lobby))
+    setLobby(addSingleAI(lobby, selectedPersonalityId))
   }
 
   const handleRemovePlayer = (playerId: string) => {
@@ -319,6 +322,20 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
 
           {emptySlots > 0 && (
             <>
+              <div className="flex-1 flex flex-col gap-2">
+                <label className="text-xs text-slate-400 mb-1">AI Personality</label>
+                <select
+                  value={selectedPersonalityId}
+                  onChange={e => setSelectedPersonalityId(e.target.value)}
+                  className="w-full bg-slate-700 text-purple-300 rounded px-2 py-1 border border-slate-600 focus:outline-none"
+                >
+                  {personalityOptions.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.avatar} {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <Button 
                 onClick={handleAddSingleAI}
                 variant="outline"

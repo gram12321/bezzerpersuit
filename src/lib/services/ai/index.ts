@@ -1,1 +1,1 @@
-export { generateAIAnswer, generateAIAnswers, selectAICategory, selectAIDifficulty } from './aiLogic'
+export { generateAIAnswers, selectAICategoryAndDifficulty, shouldAIUseBoost, processAIBoosts } from './aiLogic'

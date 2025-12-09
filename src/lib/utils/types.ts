@@ -79,6 +79,20 @@ export interface Question {
 /**
  * Player in a game session
  */
+/**
+ * AI Personality - Defines behavioral traits for AI opponents
+ */
+export interface AIPersonality {
+  id: string
+  name: string
+  avatar: string
+  description: string
+  baseSuccessRate: number
+  categoryModifiers: Partial<Record<QuestionCategory, number>>
+  consistency: number
+  boostUsageRate: number
+}
+
 export interface Player {
   id: string
   name: string
@@ -92,6 +106,7 @@ export interface Player {
   usedIKnowThisRound?: boolean
   usedCategories?: QuestionCategory[]
   usedDifficulties?: DifficultyScore[]
+  aiPersonality?: AIPersonality
 }
 
 /**
