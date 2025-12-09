@@ -48,11 +48,20 @@ export function haveAllPlayersAnswered(players: Player[]): boolean {
   return players.every(p => p.hasAnswered)
 }
 
+
 /**
  * Get the next turn player index
  */
 export function getNextTurnPlayerIndex(currentIndex: number, totalPlayers: number): number {
   return (currentIndex + 1) % totalPlayers
+}
+
+/**
+ * Utility for post-selection delay (category/difficulty)
+ * Returns a promise that resolves after the given ms
+ */
+export function postSelectionDelay(ms: number = 2000): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
 }
 
 /**

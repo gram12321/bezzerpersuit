@@ -42,12 +42,17 @@ export function selectAICategoryAndDifficulty(
     }
   }
   
-  // Rank categories by AI's modifier strength
+  // Rank categories by AI's modifier strength, with random blur
   const rankedCategories = availableCategories
-    .map(cat => ({
-      category: cat,
-      modifier: aiPersonality.categoryModifiers[cat] || 0
-    }))
+    .map(cat => {
+      // Blur the AI's perception of its own skill in each category
+      const baseMod = aiPersonality.categoryModifiers[cat] || 0
+      const blur = (Math.random() - 0.5) * 0.2 // ±0.1 blur
+      return {
+        category: cat,
+        modifier: baseMod + blur
+      }
+    })
     .sort((a, b) => b.modifier - a.modifier)
   
   // Rank difficulties (high to low)
@@ -59,36 +64,63 @@ export function selectAICategoryAndDifficulty(
   const neutralCategories = rankedCategories.filter(c => c.modifier >= -0.05 && c.modifier <= 0.05)
   
   // Categorize difficulties into tiers
-  const highDifficulties = sortedDifficulties.filter(d => d >= 0.6)
   const mediumDifficulties = sortedDifficulties.filter(d => d > 0.3 && d < 0.6)
   const lowDifficulties = sortedDifficulties.filter(d => d <= 0.3)
   
-  // Strategic pairing logic
+  // Strategic pairing logic with imperfect self-assessment
   let selectedCategory: QuestionCategory
   let selectedDifficulty: DifficultyScore
-  
-  // Prefer high difficulty with strong categories
-  if (highDifficulties.length > 0 && strongCategories.length > 0) {
-    selectedCategory = strongCategories[Math.floor(Math.random() * strongCategories.length)].category
-    selectedDifficulty = highDifficulties[Math.floor(Math.random() * highDifficulties.length)]
+
+  // Helper: pick from top N categories
+  function pickFromTop(ranked: { category: QuestionCategory; modifier: number }[], n = 1) {
+    const top = ranked.slice(0, Math.min(n, ranked.length))
+    return top[Math.floor(Math.random() * top.length)].category
+  }
+
+  // Prefer difficulty close to AI's base skill for best category
+  if (strongCategories.length > 0) {
+    // Pick best category (with some randomness)
+    selectedCategory = Math.random() < 0.3
+      ? pickFromTop(strongCategories, 3)
+      : pickFromTop(strongCategories, 1)
+    // Find difficulty closest to base skill
+    // Blur the AI's perception of its own base skill and add category modifier
+    const baseSkillTrue = aiPersonality.baseSuccessRate || 0.5
+    const catMod = aiPersonality.categoryModifiers[selectedCategory] || 0
+    const skillEstimate = baseSkillTrue + catMod + ((Math.random() - 0.5) * 0.2) // ±0.1 blur
+    // Only consider available difficulties for this category
+    let bestDiff = availableDifficulties[0]
+    let minDist = Math.abs(availableDifficulties[0] - skillEstimate)
+    for (const d of availableDifficulties) {
+      const dist = Math.abs(d - skillEstimate)
+      if (dist < minDist) {
+        bestDiff = d
+        minDist = dist
+      }
+    }
+    selectedDifficulty = bestDiff
   }
   // Use low difficulty with weak categories
   else if (lowDifficulties.length > 0 && weakCategories.length > 0) {
-    selectedCategory = weakCategories[Math.floor(Math.random() * weakCategories.length)].category
+    selectedCategory = Math.random() < 0.3
+      ? pickFromTop(weakCategories, 3)
+      : pickFromTop(weakCategories, 1)
     selectedDifficulty = lowDifficulties[Math.floor(Math.random() * lowDifficulties.length)]
   }
   // Medium difficulty with neutral or best available
   else if (mediumDifficulties.length > 0) {
     const categoriesToPick = neutralCategories.length > 0 ? neutralCategories : rankedCategories
-    selectedCategory = categoriesToPick[Math.floor(Math.random() * categoriesToPick.length)].category
+    selectedCategory = Math.random() < 0.3
+      ? pickFromTop(categoriesToPick, 3)
+      : pickFromTop(categoriesToPick, 1)
     selectedDifficulty = mediumDifficulties[Math.floor(Math.random() * mediumDifficulties.length)]
   }
   // Fallback: pair best available
   else {
-    selectedCategory = rankedCategories[0].category
+    selectedCategory = pickFromTop(rankedCategories, 1)
     selectedDifficulty = sortedDifficulties[0]
   }
-  
+
   return { category: selectedCategory, difficulty: selectedDifficulty }
 }
 

@@ -183,70 +183,64 @@ export function useGameState(initialLobby?: LobbyState) {
     }, 1000)
   }, [gameState.isGameActive, gameState.gamePhase, gameState.currentTurnPlayerIndex])
 
-  // Load question when both category and difficulty are selected
+  // Load question when both category and difficulty are selected, with a brief delay
   useEffect(() => {
     if (!gameState.isGameActive || gameState.gamePhase !== 'category-selection') {
       return
     }
-    
     if (!gameState.selectedCategory || !gameState.selectedDifficulty) {
       return
     }
-
-    if (gameState.isLoading) {
-      return
-    }
-
-    setGameState(prev => ({ ...prev, isLoading: true, error: null }))
-    
-    // Gather human player user IDs for spoiler tracking
-    const humanPlayerIds = gameState.players
-      .filter(p => !p.isAI && p.id)
-      .map(p => p.id)
-    const turnPlayerId = gameState.players[gameState.currentTurnPlayerIndex]?.id
-    
-    fetchRandomQuestions(
-      1, 
-      gameState.selectedCategory!, 
-      gameState.selectedDifficulty!,
-      humanPlayerIds,
-      turnPlayerId
-    )
-      .then(questions => {
-        if (questions.length === 0) {
-          throw new Error('No questions found')
-        }
-
-        setGameState(prev => {
-          // Mark category and difficulty as used for the current turn player
-          let updatedPlayers = markPlayerCategoryUsed(prev.players, prev.currentTurnPlayerIndex, prev.selectedCategory!)
-          updatedPlayers = markPlayerDifficultyUsed(updatedPlayers, prev.currentTurnPlayerIndex, prev.selectedDifficulty!)
-          updatedPlayers = resetPlayerAnswers(updatedPlayers)
-
-          return {
+    // Add a delay before loading the question, but do not set isLoading yet
+    const timer = setTimeout(() => {
+      setGameState(prev => ({ ...prev, isLoading: true, error: null }))
+      // Gather human player user IDs for spoiler tracking
+      const humanPlayerIds = gameState.players
+        .filter(p => !p.isAI && p.id)
+        .map(p => p.id)
+      const turnPlayerId = gameState.players[gameState.currentTurnPlayerIndex]?.id
+      fetchRandomQuestions(
+        1,
+        gameState.selectedCategory!,
+        gameState.selectedDifficulty!,
+        humanPlayerIds,
+        turnPlayerId
+      )
+        .then(questions => {
+          if (questions.length === 0) {
+            throw new Error('No questions found')
+          }
+          setGameState(prev => {
+            // Mark category and difficulty as used for the current turn player
+            let updatedPlayers = markPlayerCategoryUsed(prev.players, prev.currentTurnPlayerIndex, prev.selectedCategory!)
+            updatedPlayers = markPlayerDifficultyUsed(updatedPlayers, prev.currentTurnPlayerIndex, prev.selectedDifficulty!)
+            updatedPlayers = resetPlayerAnswers(updatedPlayers)
+            return {
+              ...prev,
+              isLoading: false,
+              questions: [...prev.questions, questions[0]],
+              gamePhase: 'answering' as GamePhase,
+              timeRemaining: initialLobby?.gameOptions.questionTimeLimit || QUESTION_TIME_LIMIT,
+              selectionTimeRemaining: initialLobby?.gameOptions.selectionTimeLimit || SELECTION_TIME_LIMIT,
+              players: updatedPlayers,
+              selectedCategory: null,
+              selectedDifficulty: null,
+              currentSelectionCategory: null,
+              currentSelectionDifficulty: null
+            }
+          })
+        })
+        .catch(error => {
+          console.error('Failed to load question:', error)
+          setGameState(prev => ({
             ...prev,
             isLoading: false,
-            questions: [...prev.questions, questions[0]],
-            gamePhase: 'answering' as GamePhase,
-            timeRemaining: initialLobby?.gameOptions.questionTimeLimit || QUESTION_TIME_LIMIT,
-            selectionTimeRemaining: initialLobby?.gameOptions.selectionTimeLimit || SELECTION_TIME_LIMIT,
-            players: updatedPlayers,
-            selectedCategory: null,
-            selectedDifficulty: null,
-            currentSelectionCategory: null,
-            currentSelectionDifficulty: null
-          }
+            error: 'Failed to load question. Please try again.'
+          }))
         })
-      })
-      .catch(error => {
-        console.error('Failed to load question:', error)
-        setGameState(prev => ({
-          ...prev,
-          isLoading: false,
-          error: 'Failed to load question. Please try again.'
-        }))
-      })
-  }, [gameState.selectedCategory, gameState.selectedDifficulty, gameState.gamePhase, gameState.isGameActive, initialLobby])
+    }, 2000) // 2 second delay
+    return () => clearTimeout(timer)
+  }, [gameState.selectedCategory, gameState.selectedDifficulty, gameState.gamePhase, gameState.isGameActive])
 
   // AI players decide on boost usage and auto-answer when question loads
   useEffect(() => {
