@@ -156,11 +156,21 @@ export async function getQuestionSpoilers(
   questionIds?: string[]
 ): Promise<Record<string, number>> {
   try {
-    const { data: user } = await supabase
+    const { data: user, error } = await supabase
       .from('users')
       .select('question_spoilers')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
+
+    if (error) {
+      console.error('Error fetching spoilers:', error)
+      return {}
+    }
+
+    if (!user) {
+      // User doesn't exist yet, return empty spoilers
+      return {}
+    }
 
     const allSpoilers = (user?.question_spoilers as Record<string, number>) || {}
 

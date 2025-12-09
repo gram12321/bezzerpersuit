@@ -138,7 +138,7 @@ export function WelcomePage({ user, onStartGame, onProfile, onAdmin }: WelcomePa
           </div>
         )}
 
-        {/* Nickname Prompt for Guest */}
+        {/* Nickname Prompt for Guest - DISABLED
         {showNicknamePrompt && (
           <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
             <CardHeader>
@@ -277,7 +277,7 @@ export function WelcomePage({ user, onStartGame, onProfile, onAdmin }: WelcomePa
 
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Password
+                    Password {mode === 'signup' && <span className="text-slate-400 text-xs">(minimum 6 characters)</span>}
                   </label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
@@ -288,8 +288,12 @@ export function WelcomePage({ user, onStartGame, onProfile, onAdmin }: WelcomePa
                       className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
                       placeholder="Password"
                       required
+                      minLength={6}
                     />
                   </div>
+                  {mode === 'signup' && password.length > 0 && password.length < 6 && (
+                    <p className="text-xs text-yellow-400 mt-1">Password must be at least 6 characters</p>
+                  )}
                 </div>
 
                 {error && (
@@ -344,6 +348,7 @@ export function WelcomePage({ user, onStartGame, onProfile, onAdmin }: WelcomePa
                 Google
               </Button>
 
+              {/* Guest play disabled - spoiler tracking requires authenticated users
               <Button
                 onClick={handleAnonymousSignIn}
                 disabled={isLoading}
@@ -352,6 +357,7 @@ export function WelcomePage({ user, onStartGame, onProfile, onAdmin }: WelcomePa
               >
                 Play as Guest
               </Button>
+              */}
               </div>
 
               <button
@@ -395,6 +401,7 @@ export function WelcomePage({ user, onStartGame, onProfile, onAdmin }: WelcomePa
               >
                 Sign In / Sign Up
               </Button>
+              {/* Guest play disabled - spoiler tracking requires authenticated users
               <Button 
                 onClick={handleAnonymousSignIn}
                 disabled={isLoading}
@@ -403,6 +410,7 @@ export function WelcomePage({ user, onStartGame, onProfile, onAdmin }: WelcomePa
               >
                 {isLoading ? 'Loading...' : 'Play as Guest'}
               </Button>
+              */}
             </CardContent>
           </Card>
         ))}

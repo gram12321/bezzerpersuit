@@ -6,39 +6,50 @@ import { getHumanPlayers } from './scoringService'
 export async function fetchRandomQuestions(
   count: number = 8,
   category?: QuestionCategory,
-  minDifficulty?: number,
-  maxDifficulty?: number,
+  targetDifficulty?: number,
   userIds?: string[],
   turnPlayerUserId?: string
 ): Promise<Question[]> {
   try {
+    console.log('🔍 fetchRandomQuestions called:', { count, category, targetDifficulty, userIds, turnPlayerUserId })
+    
     // Get all potential questions in category (or all questions if no category)
     const allQuestions = category 
       ? await getQuestionsWithFilters({ category })
       : await getAllQuestions()
 
+    console.log(`📚 Found ${allQuestions.length} questions in category "${category || 'ALL'}"`)
+
     if (allQuestions.length === 0) {
       throw new Error('No questions available in the database.')
     }
 
-    const targetDifficulty = minDifficulty !== undefined && maxDifficulty !== undefined
-      ? (minDifficulty + maxDifficulty) / 2
-      : 0.5
+    const difficulty = targetDifficulty ?? 0.5
 
     // If no users provided, use simple filtering without spoilers
     if (!userIds || userIds.length === 0) {
+      console.log('👤 No userIds provided - using simple filtering')
       const filtered = allQuestions.filter(q => 
-        Math.abs(q.difficulty - targetDifficulty) <= 0.5
+        Math.abs(q.difficulty - difficulty) <= 0.5
       )
       const candidates = filtered.length > 0 ? filtered : allQuestions
       const shuffled = [...candidates].sort(() => Math.random() - 0.5)
-      return shuffled.slice(0, Math.min(count, candidates.length))
+      const result = shuffled.slice(0, Math.min(count, candidates.length))
+      console.log(`✅ Returning ${result.length} questions (simple mode)`)
+      return result
     }
 
     // Fetch spoiler values for all users
     const questionIds = allQuestions.map(q => q.id)
     const userSpoilers = await Promise.all(
-      userIds.map(userId => getQuestionSpoilers(userId, questionIds))
+      userIds.map(async userId => {
+        try {
+          return await getQuestionSpoilers(userId, questionIds)
+        } catch (error) {
+          console.error(`Failed to get spoilers for user ${userId}:`, error)
+          return {} // Return empty object on error
+        }
+      })
     )
 
     // Calculate combined spoiler value for each question
@@ -61,42 +72,48 @@ export async function fetchRandomQuestions(
       return { ...q, combinedSpoiler }
     })
 
+    console.log(`📊 Spoiler statistics:`, {
+      total: questionsWithSpoilers.length,
+      withZeroSpoiler: questionsWithSpoilers.filter(q => q.combinedSpoiler === 0).length,
+      withLowSpoiler: questionsWithSpoilers.filter(q => q.combinedSpoiler <= 1).length,
+      avgSpoiler: (questionsWithSpoilers.reduce((sum, q) => sum + q.combinedSpoiler, 0) / questionsWithSpoilers.length).toFixed(2)
+    })
+
     // Define priority tiers: [difficultyTolerance, maxSpoiler]
-    // Each tier will try progressively more relaxed criteria
+    // Note: selectedDifficulty is the midpoint, we query with ±0.05 range (matching the 0.1 difficulty brackets)
+    // Example: "Easy Pickings" = 0.15 midpoint → 0.1-0.2 range
     const tiers: Array<[number, number | null]> = [
-      [0, 0],       // 1. Exact difficulty, no spoiler
-      [0.1, 0],     // 2. ±0.1 difficulty, no spoiler
-      [0, 0.5],     // 3. Exact difficulty, spoiler ≤ 0.5
-      [0.1, 0.5],   // 4. ±0.1 difficulty, spoiler ≤ 0.5
-      [0.2, 0.5],   // 5. ±0.2 difficulty, spoiler ≤ 0.5
-      [0, 1.0],     // 6. Exact difficulty, spoiler ≤ 1.0
-      [0.1, 1.0],   // 7. ±0.1 difficulty, spoiler ≤ 1.0
-      [0.2, 1.0],   // 8. ±0.2 difficulty, spoiler ≤ 1.0
-      [0.3, 1.0],   // 9. ±0.3 difficulty, spoiler ≤ 1.0
-      [0, 1.5],     // 10. Exact difficulty, spoiler ≤ 1.5
-      [0.1, 1.5],   // 11. ±0.1 difficulty, spoiler ≤ 1.5
-      [0.2, 1.5],   // 12. ±0.2 difficulty, spoiler ≤ 1.5
-      [0.3, 1.5],   // 13. ±0.3 difficulty, spoiler ≤ 1.5
-      [0.4, 1.5],   // 14. ±0.4 difficulty, spoiler ≤ 1.5
-      [0, 2.0],     // 15. Exact difficulty, spoiler ≤ 2.0
-      [0.1, 2.0],   // 16. ±0.1 difficulty, spoiler ≤ 2.0
-      [0.2, 2.0],   // 17. ±0.2 difficulty, spoiler ≤ 2.0
-      [0.3, 2.0],   // 18. ±0.3 difficulty, spoiler ≤ 2.0
-      [0.4, 2.0],   // 19. ±0.4 difficulty, spoiler ≤ 2.0
-      [0.5, 2.0],   // 20. ±0.5 difficulty, spoiler ≤ 2.0
-      [0, null],    // 21. Exact difficulty, any spoiler
-      [0.1, null],  // 22. ±0.1 difficulty, any spoiler
-      [0.2, null],  // 23. ±0.2 difficulty, any spoiler
-      [0.3, null],  // 24. ±0.3 difficulty, any spoiler
-      [0.5, null],  // 25. ±0.5 difficulty, any spoiler
-      [1.0, null],  // 26. Any difficulty in category, any spoiler
+      [0.05, 0],     // 1. Within selected range (±0.05), no spoiler
+      [0.05, 0.5],   // 2. Within selected range (±0.05), spoiler ≤ 0.5
+      [0.1, 0],      // 3. Within ±0.1 (one bracket wider), no spoiler
+      [0.1, 0.5],    // 4. Within ±0.1, spoiler ≤ 0.5
+      [0.15, 0],     // 5. Within ±0.15 (two brackets wider), no spoiler
+      [0.05, 1.0],   // 6. Within selected range, spoiler ≤ 1.0
+      [0.1, 1.0],    // 7. Within ±0.1, spoiler ≤ 1.0
+      [0.15, 1.0],   // 8. Within ±0.15, spoiler ≤ 1.0
+      [0.2, 1.0],    // 9. Within ±0.2, spoiler ≤ 1.0
+      [0.05, 1.5],   // 10. Within selected range, spoiler ≤ 1.5
+      [0.1, 1.5],    // 11. Within ±0.1, spoiler ≤ 1.5
+      [0.15, 1.5],   // 12. Within ±0.15, spoiler ≤ 1.5
+      [0.2, 1.5],    // 13. Within ±0.2, spoiler ≤ 1.5
+      [0.05, 2.0],   // 14. Within selected range, spoiler ≤ 2.0
+      [0.1, 2.0],    // 15. Within ±0.1, spoiler ≤ 2.0
+      [0.15, 2.0],   // 16. Within ±0.15, spoiler ≤ 2.0
+      [0.2, 2.0],    // 17. Within ±0.2, spoiler ≤ 2.0
+      [0.3, 2.0],    // 18. Within ±0.3, spoiler ≤ 2.0
+      [0.05, null],  // 19. Within selected range, any spoiler
+      [0.1, null],   // 20. Within ±0.1, any spoiler
+      [0.2, null],   // 21. Within ±0.2, any spoiler
+      [0.3, null],   // 22. Within ±0.3, any spoiler
+      [1.0, null],   // 23. Any difficulty in category, any spoiler
     ]
 
     // Try each tier
-    for (const [diffTolerance, maxSpoiler] of tiers) {
+    for (let i = 0; i < tiers.length; i++) {
+      const [diffTolerance, maxSpoiler] = tiers[i]
       const candidates = questionsWithSpoilers.filter(q => {
         // Check difficulty
-        const diffMatch = Math.abs(q.difficulty - targetDifficulty) <= diffTolerance
+        const diffMatch = Math.abs(q.difficulty - difficulty) <= diffTolerance
         
         // Check spoiler
         const spoilerMatch = maxSpoiler === null || q.combinedSpoiler <= maxSpoiler
@@ -105,23 +122,28 @@ export async function fetchRandomQuestions(
       })
 
       if (candidates.length > 0) {
+        console.log(`✅ Tier ${i + 1} matched: diffTolerance=±${diffTolerance}, maxSpoiler=${maxSpoiler === null ? 'any' : maxSpoiler}, found ${candidates.length} candidates`)
+        console.log(`   Target difficulty: ${difficulty}, acceptable range: ${(difficulty - diffTolerance).toFixed(2)}-${(difficulty + diffTolerance).toFixed(2)}`)
+        console.log(`   Candidate difficulties:`, candidates.map(q => q.difficulty.toFixed(2)).slice(0, 10).join(', '))
+        console.log(`   Selected question:`, candidates.slice(0, Math.min(count, candidates.length)).map(q => ({ id: q.id.substring(0, 8), spoiler: q.combinedSpoiler, difficulty: q.difficulty })))
+        
         // Random selection within tier
         const shuffled = [...candidates].sort(() => Math.random() - 0.5)
-        return shuffled.slice(0, Math.min(count, candidates.length))
+        const result = shuffled.slice(0, Math.min(count, candidates.length))
+        console.log(`✅ Returning ${result.length} questions from tier ${i + 1}`)
+        return result
+      } else {
+        console.log(`⏭️ Tier ${i + 1} skipped: diffTolerance=±${diffTolerance}, maxSpoiler=${maxSpoiler === null ? 'any' : maxSpoiler}, no matches`)
       }
     }
 
-    // Final fallback: any category, any difficulty, any spoiler
-    // TODO: In the future, implement category similarity matching before falling back to ANY category
-    console.warn(`⚠️ FALLBACK: No suitable questions found in "${category}" - using ANY category`)
-    
-    const allQuestionsAnyCategory = await getAllQuestions()
-    if (allQuestionsAnyCategory.length === 0) {
-      throw new Error('No questions available in the database.')
-    }
-    
-    const shuffled = [...allQuestionsAnyCategory].sort(() => Math.random() - 0.5)
-    return shuffled.slice(0, Math.min(count, allQuestionsAnyCategory.length))
+    // If we reached here with category filter, we found questions in category but none matched tiers
+    // This means all questions have been seen too much - just return them anyway (ignore spoilers)
+    console.warn(`⚠️ All questions in "${category}" have high spoiler values - returning anyway`)
+    const shuffled = [...questionsWithSpoilers].sort(() => Math.random() - 0.5)
+    const result = shuffled.slice(0, Math.min(count, questionsWithSpoilers.length))
+    console.log(`✅ Returning ${result.length} questions (fallback mode)`)
+    return result
 
   } catch (error) {
     console.error('❌ Error in fetchRandomQuestions:', error)

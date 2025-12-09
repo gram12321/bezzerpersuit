@@ -139,6 +139,10 @@ class AuthService {
       })
 
       if (authError) {
+        // Provide more helpful error messages
+        if (authError.message.toLowerCase().includes('password')) {
+          return { success: false, error: 'Password must be at least 6 characters long' }
+        }
         return { success: false, error: authError.message }
       }
 

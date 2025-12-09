@@ -182,8 +182,11 @@ export function getAvailableCategories(
 export function getAvailableDifficulties(
   usedDifficulties: DifficultyScore[]
 ): DifficultyScore[] {
-  return QUIZ_DIFFICULTY_LEVELS.map(level => createDifficultyScore(level.max - 0.05))
-    .filter(diff => !isDifficultyUsed(diff, usedDifficulties))
+  return QUIZ_DIFFICULTY_LEVELS.map(level => {
+    // Round to 2 decimal places to avoid floating-point precision errors
+    const midpoint = Math.round((level.max - 0.05) * 100) / 100
+    return createDifficultyScore(midpoint)
+  }).filter(diff => !isDifficultyUsed(diff, usedDifficulties))
 }
 
 /**

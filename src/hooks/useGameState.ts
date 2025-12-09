@@ -193,7 +193,19 @@ export function useGameState(initialLobby?: LobbyState) {
 
     setGameState(prev => ({ ...prev, isLoading: true, error: null }))
     
-    fetchRandomQuestions(1, gameState.selectedCategory!, gameState.selectedDifficulty! - 0.1, gameState.selectedDifficulty! + 0.1)
+    // Gather human player user IDs for spoiler tracking
+    const humanPlayerIds = gameState.players
+      .filter(p => !p.isAI && p.id)
+      .map(p => p.id)
+    const turnPlayerId = gameState.players[gameState.currentTurnPlayerIndex]?.id
+    
+    fetchRandomQuestions(
+      1, 
+      gameState.selectedCategory!, 
+      gameState.selectedDifficulty!,
+      humanPlayerIds,
+      turnPlayerId
+    )
       .then(questions => {
         if (questions.length === 0) {
           throw new Error('No questions found')
@@ -228,7 +240,7 @@ export function useGameState(initialLobby?: LobbyState) {
           error: 'Failed to load question. Please try again.'
         }))
       })
-  }, [gameState.selectedCategory, gameState.selectedDifficulty, gameState.gamePhase, gameState.isGameActive, gameState.isLoading, initialLobby])
+  }, [gameState.selectedCategory, gameState.selectedDifficulty, gameState.gamePhase, gameState.isGameActive, initialLobby])
 
   // AI players auto-answer immediately when question loads
   useEffect(() => {
