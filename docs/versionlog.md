@@ -28,6 +28,26 @@
 
 ---
 
+## Version 0.0007 - Identity & Logic Fixes
+**Date**: 2025-12-09
+**Commits**: (Uncommitted changes)
+
+### Changes
+- **Utils:** Updated `getDisplayName` in `src/lib/utils/utils.ts` to prioritize authenticated user's username over guest nickname.
+- **Database Schema:** Removed deprecated `display_name` column from `public.users` table (migration applied).
+- **Fix:** Resolved issue where game lobby would show "Test" (guest nickname) instead of the logged-in username.
+- **Fix:** Fixed `handle_new_user` database function which caused 500 Internal Server Errors on signup by trying to insert into the removed `display_name` column.
+
+## Version 0.0006 - Scoring Logic Update
+**Date**: 2025-12-09
+**Commits**: (Uncommitted changes)
+
+### Changes
+- **Scoring Service:** Updated `src/lib/services/scoringService.ts` (+20/-20 lines)
+- **Logic Change:** Modified 'I KNOW!' powerup scoring. Now applies a penalty for incorrect answers regardless of whether the turn player answered correctly (previously, no penalty was given if the turn player was correct).
+
+---
+
 ## Version 0.0005 - Authentication System Implementation
 **Date**: 2025-12-08
 **Commits**: (Uncommitted changes)

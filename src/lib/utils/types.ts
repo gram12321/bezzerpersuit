@@ -153,7 +153,7 @@ export interface PlayerStats {
 
 export interface GameSession {
   id: string
-  userId?: string // nullable for anonymous play
+  userId: string
   score: number
   questionsAnswered: number
 }

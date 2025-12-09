@@ -59,7 +59,7 @@ export {
 // Re-export general utilities
 export {
   cn,
-  getDisplayName,
+
   formatNumber,
   formatPercent,
   formatTime,

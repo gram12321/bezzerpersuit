@@ -40,7 +40,7 @@ export function calculatePointMultiplier(
   otherPlayersCorrect: number
 ): number {
   if (totalOtherPlayers === 0) return 1.0
-  
+
   // Linear interpolation: 1.0 when 0 correct, 0.5 when all correct
   const ratio = otherPlayersCorrect / totalOtherPlayers
   return 1.0 - (ratio * 0.5)
@@ -69,11 +69,11 @@ function calculatePlayerPoints(
   const basePoints = calculateQuestionPoints(question.difficulty)
   const turnPlayerCorrect = players[turnPlayerIndex].selectedAnswer === question.correctAnswerIndex
   const usedIKnow = player.usedIKnowThisRound || false
-  
+
   if (isTurnPlayer) {
     // Turn player gets points if correct (I KNOW not applicable)
     if (!isCorrect) return 0
-    
+
     const otherPlayersCorrectCount = players.filter(
       (p, i) => i !== playerIndex && p.selectedAnswer === question.correctAnswerIndex
     ).length
@@ -83,10 +83,19 @@ function calculatePlayerPoints(
   } else {
     // Other players - handle I KNOW powerup
     if (usedIKnow) {
-      if (turnPlayerCorrect) {
-        // Turn player was correct - no penalty, no bonus
+      if (!isCorrect) {
+        // Player wrong with I KNOW - LOSE double points
+        // Penalty applies REGARDLESS of whether turn player was correct
+        const otherPlayersCorrectCount = players.filter(
+          (p, i) => i !== turnPlayerIndex && i !== playerIndex && p.selectedAnswer === question.correctAnswerIndex
+        ).length
+        const otherPlayersCount = players.length - 2
+        const multiplier = calculatePointMultiplier(otherPlayersCount, otherPlayersCorrectCount)
+        return -(basePoints * multiplier) * 2
+      } else if (turnPlayerCorrect) {
+        // Turn player was correct and current player was correct - no penalty, no bonus
         return 0
-      } else if (isCorrect) {
+      } else {
         // Turn player wrong, player correct with I KNOW - DOUBLE points
         const otherPlayersCorrectCount = players.filter(
           (p, i) => i !== turnPlayerIndex && i !== playerIndex && p.selectedAnswer === question.correctAnswerIndex
@@ -94,19 +103,11 @@ function calculatePlayerPoints(
         const otherPlayersCount = players.length - 2
         const multiplier = calculatePointMultiplier(otherPlayersCount, otherPlayersCorrectCount)
         return (basePoints * multiplier) * 2
-      } else {
-        // Turn player wrong, player wrong with I KNOW - LOSE double points
-        const otherPlayersCorrectCount = players.filter(
-          (p, i) => i !== turnPlayerIndex && i !== playerIndex && p.selectedAnswer === question.correctAnswerIndex
-        ).length
-        const otherPlayersCount = players.length - 2
-        const multiplier = calculatePointMultiplier(otherPlayersCount, otherPlayersCorrectCount)
-        return -(basePoints * multiplier) * 2
       }
     } else {
       // Normal scoring without I KNOW
       if (!isCorrect || turnPlayerCorrect) return 0
-      
+
       const otherPlayersCorrectCount = players.filter(
         (p, i) => i !== turnPlayerIndex && i !== playerIndex && p.selectedAnswer === question.correctAnswerIndex
       ).length
@@ -138,9 +139,9 @@ export function applyScores(
 ): Player[] {
   return players.map((player, index) => {
     const earnedPoints = calculatePlayerPoints(player, index, players, currentTurnPlayerIndex, question)
-    
+
     if (earnedPoints === 0) return player
-    
+
     return {
       ...player,
       score: roundToMaxDecimals(player.score + earnedPoints)

@@ -64,7 +64,7 @@ export async function createUser(userData: UserData): Promise<{ success: boolean
  * Update user profile
  */
 export async function updateUser(
-  userId: string, 
+  userId: string,
   updates: Partial<Omit<UserData, 'id'>>
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -119,11 +119,23 @@ export async function incrementQuestionSpoiler(
 ): Promise<void> {
   try {
     // Get current spoilers
-    const { data: user } = await supabase
+    const { data: user, error: fetchError } = await supabase
       .from('users')
       .select('question_spoilers')
       .eq('id', userId)
-      .single()
+      .maybeSingle()
+
+    if (fetchError) {
+      console.error('Error fetching user for spoiler update:', fetchError)
+      return
+    }
+
+    if (!user) {
+      // Logic decision: should we create the user? Probably they should exist if they are playing.
+      // But let's fail gracefully if they don't.
+      console.warn(`User ${userId} not found when incrementing spoiler`)
+      return
+    }
 
     const currentSpoilers = (user?.question_spoilers as Record<string, number>) || {}
     const currentValue = currentSpoilers[questionId] || 0

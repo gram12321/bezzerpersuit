@@ -1,4 +1,4 @@
-import { getPlayerStats, createGameSession, updateGameSession, getGameSession } from '@/database'
+import { getPlayerStats, createGameSession, updateGameSession, getGameSession, incrementPlayerStats } from '@/database'
 import type { PlayerStats, GameSession } from '@/lib/utils'
 
 /**
@@ -30,13 +30,13 @@ class PlayerStatsService {
   /**
    * Create a new game session
    */
-  public async createSession(userId?: string): Promise<GameSession | null> {
+  public async createSession(userId: string): Promise<GameSession | null> {
     const data = await createGameSession(userId)
     if (!data) return null
 
     return ({
       id: data.id,
-      userId: data.user_id,
+      userId: data.user_id || '', // Now guaranteed to be string if DB schema enforces it, or we handle empty string
       score: data.score,
       questionsAnswered: data.questions_answered
     })
@@ -59,7 +59,7 @@ class PlayerStatsService {
 
     return ({
       id: data.id,
-      userId: data.user_id,
+      userId: data.user_id || '', // Ensure it's a string
       score: data.score,
       questionsAnswered: data.questions_answered
     })
@@ -71,6 +71,13 @@ class PlayerStatsService {
   public calculateAccuracy(stats: PlayerStats): number {
     if (stats.questionsAnswered === 0) return 0
     return Math.round((stats.correctAnswers / stats.questionsAnswered) * 100)
+  }
+  /**
+   * Update player stats (increment counts)
+   */
+  public async updateStats(userId: string, wasCorrect: boolean): Promise<boolean> {
+    const result = await incrementPlayerStats(userId, wasCorrect)
+    return result.success
   }
 }
 

@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import type { Question, Player, LobbyState, GamePhase, QuestionCategory, DifficultyScore } from '@/lib/utils'
-import { fetchRandomQuestions, updateQuestionStatsFromPlayers } from '@/lib/services'
-import { 
-  haveAllPlayersAnswered, 
-  getNextTurnPlayerIndex, 
-  isLastQuestion, 
+import { fetchRandomQuestions, updateQuestionStatsFromPlayers, playerStatsService, updatePlayerSpoilerValues } from '@/lib/services'
+import {
+  haveAllPlayersAnswered,
+  getNextTurnPlayerIndex,
+  isLastQuestion,
   autoSubmitUnansweredPlayers,
   resetPlayerAnswers,
   updatePlayerAnswer,
@@ -41,6 +41,59 @@ export interface GameState {
   currentSelectionDifficulty: DifficultyScore | null
 }
 
+import { authService } from '@/lib/services'
+import { supabase } from '@/database/supabase'
+
+/**
+ * Helper to update all stats (Question difficulty, Spoilers, Player stats)
+ * Fire and forget - does not block UI
+ */
+const updateAllGameStats = async (question: Question, players: Player[]) => {
+  let currentUser = authService.getCurrentUser()
+
+  // Fallback: Check Supabase directly if authService user is missing (e.g. race condition)
+  if (!currentUser) {
+    const { data } = await supabase.auth.getUser()
+    if (data.user) {
+      currentUser = { id: data.user.id, username: 'unknown', avatarId: '1' }
+    }
+  }
+
+  if (!currentUser) {
+    console.log('No authenticated user found for stats update')
+    return
+  }
+
+  // 1. Update Question Difficulty & History
+  // Designate the first human player as the "reporter" for global stats to avoid duplicates
+  // This ensures updates happen even during AI turns (as long as a human is present)
+  const firstHumanPlayer = players.find(p => !p.isAI && p.id)
+  const isReporter = firstHumanPlayer?.id === currentUser.id
+
+  if (isReporter) {
+    updateQuestionStatsFromPlayers(question, players).catch(e => console.error('Question stats update error:', e))
+  }
+
+  // 2. Update User Spoilers
+  // Only update for the current authenticated user
+  const currentPlayerInGame = players.find(p => p.id === currentUser.id)
+  if (currentPlayerInGame) {
+    // Pass only the current player to avoid trying to update others (which would fail RLS)
+    updatePlayerSpoilerValues(question, [currentPlayerInGame]).catch(e => console.error('Spoiler update error:', e))
+  } else {
+    console.log('Current user not found in game players list', currentUser.id, players)
+  }
+
+  // 3. Update User Player Stats
+  // Only update for the current authenticated user
+  if (currentPlayerInGame && !currentPlayerInGame.isAI) {
+    const wasCorrect = currentPlayerInGame.selectedAnswer === question.correctAnswerIndex
+    playerStatsService.updateStats(currentUser.id, wasCorrect)
+      .then(() => console.log('Stats updated for user', currentUser?.id))
+      .catch(e => console.error('Player stats update error:', e))
+  }
+}
+
 export function useGameState(initialLobby?: LobbyState) {
   const [gameState, setGameState] = useState<GameState>({
     currentQuestionIndex: 0,
@@ -68,6 +121,9 @@ export function useGameState(initialLobby?: LobbyState) {
     currentSelectionDifficulty: null
   })
 
+  // Ref to track which questions we've already updated stats for
+  const lastProcessedQuestionRef = useRef<string | null>(null)
+
   const startGame = useCallback(async (lobby?: LobbyState) => {
     setGameState(prev => {
       const players = lobby?.players || prev.players
@@ -75,7 +131,7 @@ export function useGameState(initialLobby?: LobbyState) {
       const questionTimeLimit = lobby?.gameOptions.questionTimeLimit || QUESTION_TIME_LIMIT
       const selectionTimeLimit = lobby?.gameOptions.selectionTimeLimit || SELECTION_TIME_LIMIT
       const iKnowPowerups = lobby?.gameOptions.iKnowPowerupsPerPlayer ?? I_KNOW_POWERUPS_PER_PLAYER
-      
+
       return {
         currentQuestionIndex: 0,
         score: 0,
@@ -88,9 +144,9 @@ export function useGameState(initialLobby?: LobbyState) {
         showResult: false,
         isCorrect: false,
         questions: [],
-        players: players.map(p => ({ 
-          ...p, 
-          hasAnswered: false, 
+        players: players.map(p => ({
+          ...p,
+          hasAnswered: false,
           selectedAnswer: undefined,
           iKnowPowerupsRemaining: iKnowPowerups,
           usedIKnowThisRound: false,
@@ -122,7 +178,7 @@ export function useGameState(initialLobby?: LobbyState) {
             currentPlayer.usedCategories || [],
             currentPlayer.usedDifficulties || []
           )
-          
+
           return {
             ...prev,
             selectionTimeRemaining: 0,
@@ -140,7 +196,7 @@ export function useGameState(initialLobby?: LobbyState) {
   // AI auto-selects category when it's their turn (with delay for visibility)
   useEffect(() => {
     if (!gameState.isGameActive || gameState.gamePhase !== 'category-selection') return
-    
+
     const currentTurnPlayer = gameState.players[gameState.currentTurnPlayerIndex]
     if (!currentTurnPlayer?.isAI) {
       return
@@ -156,25 +212,25 @@ export function useGameState(initialLobby?: LobbyState) {
       currentTurnPlayer.usedCategories || [],
       currentTurnPlayer.usedDifficulties || []
     )
-    
+
     // Show category selection first
     setTimeout(() => {
-      setGameState(prev => ({ 
-        ...prev, 
+      setGameState(prev => ({
+        ...prev,
         currentSelectionCategory: category
       }))
-      
+
       // Show difficulty selection after another delay
       setTimeout(() => {
-        setGameState(prev => ({ 
-          ...prev, 
+        setGameState(prev => ({
+          ...prev,
           currentSelectionDifficulty: difficulty
         }))
-        
+
         // Finalize both selections after brief pause
         setTimeout(() => {
-          setGameState(prev => ({ 
-            ...prev, 
+          setGameState(prev => ({
+            ...prev,
             selectedCategory: category,
             selectedDifficulty: difficulty
           }))
@@ -254,13 +310,26 @@ export function useGameState(initialLobby?: LobbyState) {
       let updatedPlayers = processAIBoosts(prev.players, currentQuestion, prev.currentTurnPlayerIndex)
       // Then, AIs generate their answers
       updatedPlayers = generateAIAnswers(updatedPlayers, currentQuestion)
-      
+
       return {
         ...prev,
         players: updatedPlayers
       }
     })
   }, [gameState.isGameActive, gameState.gamePhase, gameState.currentQuestionIndex])
+
+  // Handle side effects when a question is completed (entered 'results' phase)
+  useEffect(() => {
+    if (gameState.gamePhase === 'results') {
+      const currentQuestion = gameState.questions[gameState.currentQuestionIndex]
+
+      // Ensure we only process stats once per question
+      if (currentQuestion && lastProcessedQuestionRef.current !== currentQuestion.id) {
+        lastProcessedQuestionRef.current = currentQuestion.id
+        updateAllGameStats(currentQuestion, gameState.players)
+      }
+    }
+  }, [gameState.gamePhase, gameState.currentQuestionIndex, gameState.questions, gameState.players])
 
   useEffect(() => {
     if (!gameState.isGameActive || gameState.gamePhase !== 'answering') return
@@ -269,7 +338,7 @@ export function useGameState(initialLobby?: LobbyState) {
       setGameState(prev => {
         if (prev.timeRemaining <= 1) {
           const currentQuestion = prev.questions[prev.currentQuestionIndex]
-          
+
           // Auto-submit for players who haven't answered
           const finalPlayers = autoSubmitUnansweredPlayers(prev.players)
 
@@ -282,6 +351,8 @@ export function useGameState(initialLobby?: LobbyState) {
 
           const turnPlayerAnswer = finalPlayers[prev.currentTurnPlayerIndex].selectedAnswer!
           const turnPlayerCorrect = isAnswerCorrect(turnPlayerAnswer, currentQuestion)
+
+
 
           return {
             ...prev,
@@ -320,11 +391,7 @@ export function useGameState(initialLobby?: LobbyState) {
           currentQuestion
         )
 
-        // Update question stats (fire and forget - don't block UI)
-        updateQuestionStatsFromPlayers(currentQuestion, scoredPlayers)
-          .catch(error => {
-            console.error('Failed to update question stats:', error)
-          })
+
 
         return {
           ...prev,
@@ -362,7 +429,7 @@ export function useGameState(initialLobby?: LobbyState) {
       // Check if next turn player needs their categories or difficulties reset
       const nextPlayer = prev.players[nextTurnPlayerIndex]
       let updatedPlayers = prev.players
-      
+
       if (areAllCategoriesUsed(nextPlayer.usedCategories || [])) {
         updatedPlayers = resetPlayerCategories(updatedPlayers, nextTurnPlayerIndex)
       }
@@ -370,7 +437,7 @@ export function useGameState(initialLobby?: LobbyState) {
       if (areAllDifficultiesUsed(nextPlayer.usedDifficulties || [])) {
         updatedPlayers = resetPlayerDifficulties(updatedPlayers, nextTurnPlayerIndex)
       }
-      
+
       updatedPlayers = resetPlayerAnswers(updatedPlayers).map(p => ({ ...p, usedIKnowThisRound: false }))
 
       return {
@@ -400,16 +467,16 @@ export function useGameState(initialLobby?: LobbyState) {
   }, [])
 
   const selectCategory = useCallback((category: QuestionCategory) => {
-    setGameState(prev => ({ 
-      ...prev, 
+    setGameState(prev => ({
+      ...prev,
       selectedCategory: category,
       currentSelectionCategory: category
     }))
   }, [])
 
   const selectDifficulty = useCallback((difficulty: DifficultyScore) => {
-    setGameState(prev => ({ 
-      ...prev, 
+    setGameState(prev => ({
+      ...prev,
       selectedDifficulty: difficulty,
       currentSelectionDifficulty: difficulty
     }))
@@ -422,7 +489,7 @@ export function useGameState(initialLobby?: LobbyState) {
   const useIKnow = useCallback((playerId: string) => {
     setGameState(prev => {
       const player = prev.players.find(p => p.id === playerId)
-      
+
       // Validation checks
       if (!player || player.id === prev.players[prev.currentTurnPlayerIndex].id) {
         return prev // Can't use if you're the turn player
@@ -433,17 +500,17 @@ export function useGameState(initialLobby?: LobbyState) {
       if (player.usedIKnowThisRound) {
         return prev // Already used this round
       }
-      
+
       // Use the powerup
       return {
         ...prev,
-        players: prev.players.map(p => 
-          p.id === playerId 
-            ? { 
-                ...p, 
-                usedIKnowThisRound: true,
-                iKnowPowerupsRemaining: (p.iKnowPowerupsRemaining || 0) - 1
-              }
+        players: prev.players.map(p =>
+          p.id === playerId
+            ? {
+              ...p,
+              usedIKnowThisRound: true,
+              iKnowPowerupsRemaining: (p.iKnowPowerupsRemaining || 0) - 1
+            }
             : p
         )
       }

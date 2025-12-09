@@ -13,11 +13,9 @@ interface WelcomePageProps {
 
 export function WelcomePage({ user, onStartGame, onProfile, onAdmin }: WelcomePageProps) {
   const [showAuthForm, setShowAuthForm] = useState(false)
-  const [showNicknamePrompt, setShowNicknamePrompt] = useState(false)
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
-  const [nickname, setNickname] = useState('')
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -80,42 +78,6 @@ export function WelcomePage({ user, onStartGame, onProfile, onAdmin }: WelcomePa
     }
   }
 
-  const handleAnonymousSignIn = async () => {
-    setShowNicknamePrompt(true)
-    setShowAuthForm(false)
-  }
-
-  const handleNicknameSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    if (!nickname.trim()) {
-      setError('Please enter a nickname')
-      return
-    }
-
-    setError('')
-    setIsLoading(true)
-
-    try {
-      const result = await authService.signInAnonymously()
-      if (result.success) {
-        // Store nickname in sessionStorage for use in lobby/game
-        sessionStorage.setItem('guestNickname', nickname.trim())
-        setShowNicknamePrompt(false)
-        setNickname('')
-        onStartGame() // Navigate to lobby
-      } else {
-        setError(result.error || 'Anonymous sign in failed')
-      }
-    } catch (err) {
-      setError('An unexpected error occurred')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-
-
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
       <div className="max-w-4xl w-full space-y-8">
@@ -133,68 +95,13 @@ export function WelcomePage({ user, onStartGame, onProfile, onAdmin }: WelcomePa
         {user && (
           <div className="text-center">
             <p className="text-lg text-purple-300">
-              Welcome back, <span className="font-semibold text-white">{sessionStorage.getItem('guestNickname') || user.username}</span>!
+              Welcome back, <span className="font-semibold text-white">{user.username}</span>!
             </p>
           </div>
         )}
 
-        {/* Nickname Prompt for Guest - DISABLED
-        {showNicknamePrompt && (
-          <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-3xl text-white text-center">What should we call you?</CardTitle>
-              <CardDescription className="text-purple-200 text-center">
-                Enter a nickname to use in the game
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleNicknameSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">
-                    Nickname
-                  </label>
-                  <div className="relative">
-                    <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5" />
-                    <input
-                      type="text"
-                      value={nickname}
-                      onChange={(e) => setNickname(e.target.value)}
-                      className="w-full pl-10 pr-4 py-2 bg-slate-700 border border-slate-600 rounded-md text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      placeholder="Enter your nickname"
-                      autoFocus
-                      required
-                    />
-                  </div>
-                </div>
-
-                {error && (
-                  <div className="bg-red-500/10 border border-red-500 text-red-500 px-4 py-2 rounded-md text-sm">
-                    {error}
-                  </div>
-                )}
-
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3"
-                >
-                  {isLoading ? 'Loading...' : 'Continue'}
-                </Button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowNicknamePrompt(false)}
-                  className="w-full text-slate-400 hover:text-slate-300 text-sm"
-                >
-                  ← Back
-                </button>
-              </form>
-            </CardContent>
-          </Card>
-        )}
-
         {/* Play Card or Auth Form */}
-        {!showNicknamePrompt && (user ? (
+        {user ? (
           <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm hover:bg-slate-800/70 transition-all hover:scale-105">
             <CardHeader>
               <CardTitle className="text-3xl text-white text-center">Play Quiz</CardTitle>
@@ -221,7 +128,7 @@ export function WelcomePage({ user, onStartGame, onProfile, onAdmin }: WelcomePa
                   <span>Multiple categories and difficulty levels</span>
                 </div>
               </div>
-              <Button 
+              <Button
                 onClick={onStartGame}
                 className="w-full bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-lg py-6"
               >
@@ -339,25 +246,14 @@ export function WelcomePage({ user, onStartGame, onProfile, onAdmin }: WelcomePa
                     <path
                       fill="currentColor"
                       d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                  />
-                  <path
-                    fill="currentColor"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                  />
-                </svg>
-                Google
-              </Button>
-
-              {/* Guest play disabled - spoiler tracking requires authenticated users
-              <Button
-                onClick={handleAnonymousSignIn}
-                disabled={isLoading}
-                variant="outline"
-                className="border-slate-600 text-slate-300 hover:bg-slate-700"
-              >
-                Play as Guest
-              </Button>
-              */}
+                    />
+                    <path
+                      fill="currentColor"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    />
+                  </svg>
+                  Google
+                </Button>
               </div>
 
               <button
@@ -395,28 +291,17 @@ export function WelcomePage({ user, onStartGame, onProfile, onAdmin }: WelcomePa
                   <span>Multiple categories and difficulty levels</span>
                 </div>
               </div>
-              <Button 
+              <Button
                 onClick={() => setShowAuthForm(true)}
                 className="w-full bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white text-lg py-6"
               >
                 Sign In / Sign Up
               </Button>
-              {/* Guest play disabled - spoiler tracking requires authenticated users
-              <Button 
-                onClick={handleAnonymousSignIn}
-                disabled={isLoading}
-                variant="outline"
-                className="w-full border-slate-600 text-slate-300 hover:bg-slate-700 text-lg py-6"
-              >
-                {isLoading ? 'Loading...' : 'Play as Guest'}
-              </Button>
-              */}
             </CardContent>
           </Card>
-        ))}
+        )}
 
         {/* Quick Stats */}
-        {!showNicknamePrompt && (
         <Card className="bg-slate-800/30 border-slate-700 backdrop-blur-sm">
           <CardContent className="pt-6">
             <div className="grid grid-cols-3 gap-4 text-center">
@@ -435,13 +320,11 @@ export function WelcomePage({ user, onStartGame, onProfile, onAdmin }: WelcomePa
             </div>
           </CardContent>
         </Card>
-        )}
 
         {/* Auth Buttons */}
-        {!showNicknamePrompt && (
         <div className="flex gap-4 justify-center flex-wrap">
           {user && (
-            <Button 
+            <Button
               onClick={onProfile}
               className="border-slate-600 text-white hover:bg-slate-800 bg-purple-600/30"
               variant="outline"
@@ -449,7 +332,7 @@ export function WelcomePage({ user, onStartGame, onProfile, onAdmin }: WelcomePa
               Profile
             </Button>
           )}
-          <Button 
+          <Button
             onClick={onAdmin}
             className="border-slate-600 text-white hover:bg-slate-800 bg-slate-800/30"
             variant="outline"
@@ -457,7 +340,7 @@ export function WelcomePage({ user, onStartGame, onProfile, onAdmin }: WelcomePa
             Admin Dashboard
           </Button>
           {user && (
-            <Button 
+            <Button
               onClick={async () => {
                 const result = await authService.signOut()
                 if (result.success) {
@@ -471,7 +354,6 @@ export function WelcomePage({ user, onStartGame, onProfile, onAdmin }: WelcomePa
             </Button>
           )}
         </div>
-        )}
       </div>
     </div>
   )

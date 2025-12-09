@@ -1,31 +1,12 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { User } from "./types"
+
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-/**
- * Get the display name for a user or guest
- * Priority: guestNickname (sessionStorage) > user.username > 'Guest'
- * This ensures anonymous users show their chosen nickname instead of generated usernames
- */
-export function getDisplayName(user: User | null): string {
-  // Always check for guest nickname first (even if user exists - for anonymous users)
-  const guestNickname = sessionStorage.getItem('guestNickname')
-  if (guestNickname) {
-    return guestNickname
-  }
-  
-  // Fall back to username if available
-  if (user?.username) {
-    return user.username
-  }
-  
-  // Final fallback
-  return 'Guest'
-}
+
 
 // ========================================
 // NUMBER & CURRENCY FORMATTING
@@ -55,10 +36,10 @@ export function formatNumber(value: number, options?: {
   if (typeof value !== 'number' || isNaN(value)) {
     return options?.currency ? '$0' : '0';
   }
-  
-  const { 
-    decimals, 
-    forceDecimals = false, 
+
+  const {
+    decimals,
+    forceDecimals = false,
     currency = false,
     compact = false,
     percent = false,
@@ -80,7 +61,7 @@ export function formatNumber(value: number, options?: {
   if (compact) {
     const absValue = Math.abs(value);
     const compactDecimals = decimals !== undefined ? decimals : 1;
-    
+
     let compactValue: string;
     if (absValue >= 1e12) {
       compactValue = (value / 1e12).toFixed(compactDecimals) + 'T';
@@ -93,10 +74,10 @@ export function formatNumber(value: number, options?: {
     } else {
       compactValue = value.toFixed(compactDecimals);
     }
-    
+
     return currency ? '$' + compactValue : compactValue;
   }
-  
+
   // Handle currency formatting
   if (currency) {
     const finalDecimals = decimals !== undefined ? decimals : 0;
@@ -107,24 +88,24 @@ export function formatNumber(value: number, options?: {
       maximumFractionDigits: finalDecimals
     }).format(value);
   }
-  
+
   // Regular number formatting
   const effectiveDecimals = decimals ?? 2;
-  
+
   // For large numbers, don't show decimals unless forced
   if (Math.abs(value) >= 1000 && !forceDecimals) {
     return value.toLocaleString('en-US', {
       maximumFractionDigits: 0
     });
   }
-  
+
   // For whole numbers, don't show decimals unless forced
   if (Number.isInteger(value) && !forceDecimals) {
     return value.toLocaleString('en-US', {
       maximumFractionDigits: 0
     });
   }
-  
+
   return value.toLocaleString('en-US', {
     minimumFractionDigits: forceDecimals ? effectiveDecimals : 0,
     maximumFractionDigits: effectiveDecimals
@@ -167,18 +148,18 @@ export function formatTime(date: Date): string {
  */
 export function formatDate(date: Date, includeTime: boolean = false): string {
   if (!(date instanceof Date) || isNaN(date.getTime())) return 'Invalid Date';
-  
+
   const options: Intl.DateTimeFormatOptions = {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
   };
-  
+
   if (includeTime) {
     options.hour = '2-digit';
     options.minute = '2-digit';
   }
-  
+
   return date.toLocaleDateString('en-US', options);
 }
 

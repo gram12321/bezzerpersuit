@@ -1,18 +1,18 @@
 import { useState, useEffect } from 'react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui"
 import type { LobbyState, Player } from '@/lib/utils'
-import { 
-  createLobby, 
+import {
+  createLobby,
   fillWithAI,
-  addSingleAI, 
-  togglePlayerReady, 
+  addSingleAI,
+  togglePlayerReady,
   canStartGame,
   startLobbyGame,
   removePlayerFromLobby,
   updateGameOptions
 } from '@/lib/services'
 import { authService } from '@/lib/services'
-import { cn, getDisplayName, PLAYER_STATE_EMOJIS } from '@/lib/utils'
+import { cn, PLAYER_STATE_EMOJIS } from '@/lib/utils'
 import { AI_PERSONALITIES } from '@/lib/constants'
 
 interface LobbyAreaProps {
@@ -21,18 +21,24 @@ interface LobbyAreaProps {
 }
 
 export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
-    const personalityOptions = Object.values(AI_PERSONALITIES)
-    const [selectedPersonalityId, setSelectedPersonalityId] = useState<string>(personalityOptions[0].id)
+  const personalityOptions = Object.values(AI_PERSONALITIES)
+  const [selectedPersonalityId, setSelectedPersonalityId] = useState<string>(personalityOptions[0].id)
   const [lobby, setLobby] = useState<LobbyState | null>(null)
   const [currentPlayerId, setCurrentPlayerId] = useState<string>('')
 
   useEffect(() => {
     // Initialize lobby with current player
-    const playerId = crypto.randomUUID()
+    const currentUser = authService.getCurrentUser()
+
+    if (!currentUser) {
+      onExit()
+      return
+    }
+
+    const playerId = currentUser.id
     setCurrentPlayerId(playerId)
 
-    const currentUser = authService.getCurrentUser()
-    const playerName = getDisplayName(currentUser)
+    const playerName = currentUser.username
 
     const hostPlayer: Player = {
       id: playerId,
@@ -103,7 +109,7 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
               <CardTitle className="text-3xl text-white">
                 Game Lobby
               </CardTitle>
-              <Button 
+              <Button
                 onClick={onExit}
                 variant="outline"
                 className="border-slate-600 text-slate-400 hover:bg-slate-800 hover:text-white"
@@ -128,87 +134,87 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
                   </AccordionTrigger>
                   <AccordionContent>
                     <div className="grid md:grid-cols-2 gap-6 pt-4">
-                {/* Questions Per Game */}
-                <div className="space-y-2">
-                  <label className="text-sm text-slate-300 font-semibold flex items-center justify-between">
-                    <span>Questions Per Game</span>
-                    <span className="text-purple-400 text-lg font-bold">{lobby.gameOptions.questionsPerGame}</span>
-                  </label>
-                  <input
-                    type="range"
-                    min={5}
-                    max={20}
-                    value={lobby.gameOptions.questionsPerGame}
-                    onChange={(e) => handleUpdateOption('questionsPerGame', parseInt(e.target.value))}
-                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
-                  />
-                  <div className="flex justify-between text-xs text-slate-500">
-                    <span>5</span>
-                    <span>20</span>
-                  </div>
-                </div>
+                      {/* Questions Per Game */}
+                      <div className="space-y-2">
+                        <label className="text-sm text-slate-300 font-semibold flex items-center justify-between">
+                          <span>Questions Per Game</span>
+                          <span className="text-purple-400 text-lg font-bold">{lobby.gameOptions.questionsPerGame}</span>
+                        </label>
+                        <input
+                          type="range"
+                          min={5}
+                          max={20}
+                          value={lobby.gameOptions.questionsPerGame}
+                          onChange={(e) => handleUpdateOption('questionsPerGame', parseInt(e.target.value))}
+                          className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                        />
+                        <div className="flex justify-between text-xs text-slate-500">
+                          <span>5</span>
+                          <span>20</span>
+                        </div>
+                      </div>
 
-                {/* Question Time Limit */}
-                <div className="space-y-2">
-                  <label className="text-sm text-slate-300 font-semibold flex items-center justify-between">
-                    <span>Question Time (seconds)</span>
-                    <span className="text-purple-400 text-lg font-bold">{lobby.gameOptions.questionTimeLimit}s</span>
-                  </label>
-                  <input
-                    type="range"
-                    min={10}
-                    max={60}
-                    step={5}
-                    value={lobby.gameOptions.questionTimeLimit}
-                    onChange={(e) => handleUpdateOption('questionTimeLimit', parseInt(e.target.value))}
-                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
-                  />
-                  <div className="flex justify-between text-xs text-slate-500">
-                    <span>10s</span>
-                    <span>60s</span>
-                  </div>
-                </div>
+                      {/* Question Time Limit */}
+                      <div className="space-y-2">
+                        <label className="text-sm text-slate-300 font-semibold flex items-center justify-between">
+                          <span>Question Time (seconds)</span>
+                          <span className="text-purple-400 text-lg font-bold">{lobby.gameOptions.questionTimeLimit}s</span>
+                        </label>
+                        <input
+                          type="range"
+                          min={10}
+                          max={60}
+                          step={5}
+                          value={lobby.gameOptions.questionTimeLimit}
+                          onChange={(e) => handleUpdateOption('questionTimeLimit', parseInt(e.target.value))}
+                          className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                        />
+                        <div className="flex justify-between text-xs text-slate-500">
+                          <span>10s</span>
+                          <span>60s</span>
+                        </div>
+                      </div>
 
-                {/* Selection Time Limit */}
-                <div className="space-y-2">
-                  <label className="text-sm text-slate-300 font-semibold flex items-center justify-between">
-                    <span>Category Selection Time (seconds)</span>
-                    <span className="text-purple-400 text-lg font-bold">{lobby.gameOptions.selectionTimeLimit}s</span>
-                  </label>
-                  <input
-                    type="range"
-                    min={5}
-                    max={30}
-                    step={5}
-                    value={lobby.gameOptions.selectionTimeLimit}
-                    onChange={(e) => handleUpdateOption('selectionTimeLimit', parseInt(e.target.value))}
-                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
-                  />
-                  <div className="flex justify-between text-xs text-slate-500">
-                    <span>5s</span>
-                    <span>30s</span>
-                  </div>
-                </div>
+                      {/* Selection Time Limit */}
+                      <div className="space-y-2">
+                        <label className="text-sm text-slate-300 font-semibold flex items-center justify-between">
+                          <span>Category Selection Time (seconds)</span>
+                          <span className="text-purple-400 text-lg font-bold">{lobby.gameOptions.selectionTimeLimit}s</span>
+                        </label>
+                        <input
+                          type="range"
+                          min={5}
+                          max={30}
+                          step={5}
+                          value={lobby.gameOptions.selectionTimeLimit}
+                          onChange={(e) => handleUpdateOption('selectionTimeLimit', parseInt(e.target.value))}
+                          className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                        />
+                        <div className="flex justify-between text-xs text-slate-500">
+                          <span>5s</span>
+                          <span>30s</span>
+                        </div>
+                      </div>
 
-                {/* I Know! Powerups */}
-                <div className="space-y-2">
-                  <label className="text-sm text-slate-300 font-semibold flex items-center justify-between">
-                    <span>"I KNOW!" Powerups</span>
-                    <span className="text-purple-400 text-lg font-bold">{lobby.gameOptions.iKnowPowerupsPerPlayer}</span>
-                  </label>
-                  <input
-                    type="range"
-                    min={0}
-                    max={5}
-                    value={lobby.gameOptions.iKnowPowerupsPerPlayer}
-                    onChange={(e) => handleUpdateOption('iKnowPowerupsPerPlayer', parseInt(e.target.value))}
-                    className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
-                  />
-                  <div className="flex justify-between text-xs text-slate-500">
-                    <span>0</span>
-                    <span>5</span>
-                  </div>
-                </div>
+                      {/* I Know! Powerups */}
+                      <div className="space-y-2">
+                        <label className="text-sm text-slate-300 font-semibold flex items-center justify-between">
+                          <span>"I KNOW!" Powerups</span>
+                          <span className="text-purple-400 text-lg font-bold">{lobby.gameOptions.iKnowPowerupsPerPlayer}</span>
+                        </label>
+                        <input
+                          type="range"
+                          min={0}
+                          max={5}
+                          value={lobby.gameOptions.iKnowPowerupsPerPlayer}
+                          onChange={(e) => handleUpdateOption('iKnowPowerupsPerPlayer', parseInt(e.target.value))}
+                          className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                        />
+                        <div className="flex justify-between text-xs text-slate-500">
+                          <span>0</span>
+                          <span>5</span>
+                        </div>
+                      </div>
                     </div>
                   </AccordionContent>
                 </AccordionItem>
@@ -220,7 +226,7 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
         {/* Player Slots */}
         <div className="grid md:grid-cols-2 gap-4">
           {lobby.players.map((player) => (
-            <Card 
+            <Card
               key={player.id}
               className={cn(
                 "bg-slate-800/50 border-slate-700 backdrop-blur-sm transition-all",
@@ -272,7 +278,7 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
 
           {/* Empty Slots */}
           {Array.from({ length: emptySlots }).map((_, index) => (
-            <Card 
+            <Card
               key={`empty-${index}`}
               className="bg-slate-800/30 border-slate-700 border-dashed backdrop-blur-sm"
             >
@@ -304,14 +310,14 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
         {/* Actions */}
         <div className="flex gap-4">
           {!lobby.players.find(p => p.id === currentPlayerId)?.isReady ? (
-            <Button 
+            <Button
               onClick={handleToggleReady}
               className="flex-1 bg-green-600 hover:bg-green-700 text-white"
             >
               Ready Up
             </Button>
           ) : (
-            <Button 
+            <Button
               onClick={handleToggleReady}
               variant="outline"
               className="flex-1 border-green-600 text-green-400 hover:bg-green-600/20"
@@ -336,14 +342,14 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
                   ))}
                 </select>
               </div>
-              <Button 
+              <Button
                 onClick={handleAddSingleAI}
                 variant="outline"
                 className="flex-1 border-purple-600 text-purple-400 hover:bg-purple-600/20"
               >
                 Add AI Player
               </Button>
-              <Button 
+              <Button
                 onClick={handleFillWithAI}
                 variant="outline"
                 className="flex-1 border-purple-600 text-purple-400 hover:bg-purple-600/20"
@@ -354,7 +360,7 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
           )}
 
           {isHost && (
-            <Button 
+            <Button
               onClick={handleStartGame}
               disabled={!canStartGame(lobby)}
               className="flex-1 bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"

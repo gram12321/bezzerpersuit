@@ -92,7 +92,7 @@ class AuthService {
     this.listeners.push(callback)
     // Call immediately with current state
     callback(this.currentUser)
-    
+
     // Return unsubscribe function
     return () => {
       this.listeners = this.listeners.filter(l => l !== callback)
@@ -185,27 +185,7 @@ class AuthService {
     }
   }
 
-  /**
-   * Sign in anonymously
-   */
-  public async signInAnonymously(): Promise<AuthResult> {
-    try {
-      const { data, error } = await supabase.auth.signInAnonymously()
 
-      if (error) {
-        return { success: false, error: error.message }
-      }
-
-      if (data.user) {
-        return { success: true }
-      }
-
-      return { success: false, error: 'Failed to sign in anonymously' }
-    } catch (error) {
-      console.error('Anonymous sign in error:', error)
-      return { success: false, error: 'An unexpected error occurred' }
-    }
-  }
 
   /**
    * Sign in with Google OAuth
@@ -237,7 +217,7 @@ class AuthService {
   public async signOut(): Promise<AuthResult> {
     try {
       const { error } = await supabase.auth.signOut()
-      
+
       if (error) {
         return { success: false, error: error.message }
       }
