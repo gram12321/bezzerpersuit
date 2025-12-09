@@ -1,7 +1,5 @@
-import type { Player, Question, QuestionCategory, DifficultyScore } from '@/lib/utils/types'
-import { QUIZ_CATEGORIES } from '@/lib/utils/types'
-import { QUIZ_DIFFICULTY_LEVELS } from '@/lib/utils/utils'
-import { createDifficultyScore } from '@/lib/utils/types'
+import type { Player, Question, QuestionCategory, DifficultyScore } from '@/lib/utils'
+import { QUIZ_CATEGORIES, QUIZ_DIFFICULTY_LEVELS, createDifficultyScore } from '@/lib/utils'
 
 /**
  * Game Service - Business logic for quiz game flow and state transitions

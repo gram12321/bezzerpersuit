@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { User, LogOut, Target, TrendingUp } from 'lucide-react'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui'
 import { authService, playerStatsService } from '@/lib/services'
-import { STATUS_EMOJIS } from '@/lib/constants'
-import type { User as UserType, PlayerStats } from '@/lib/utils/types'
+import { STATUS_EMOJIS } from '@/lib/utils'
+import type { User as UserType, PlayerStats } from '@/lib/utils'
 
 interface ProfilePageProps {
   onBack?: () => void

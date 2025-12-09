@@ -1,5 +1,5 @@
-import { getPlayerStats, createGameSession, updateGameSession, getGameSession, updatePlayerStatsFromSession } from '@/database'
-import type { PlayerStats, GameSession } from '@/lib/utils/types'
+import { getPlayerStats, createGameSession, updateGameSession, getGameSession } from '@/database'
+import type { PlayerStats, GameSession } from '@/lib/utils'
 
 /**
  * Service for managing player statistics and game sessions
@@ -8,10 +8,6 @@ import type { PlayerStats, GameSession } from '@/lib/utils/types'
 export interface UpdateGameSessionData {
   score?: number
   questionsAnswered?: number
-  correctAnswers?: number
-  incorrectAnswers?: number
-  completed?: boolean
-  completedAt?: string
 }
 
 class PlayerStatsService {
@@ -38,16 +34,12 @@ class PlayerStatsService {
     const data = await createGameSession(userId)
     if (!data) return null
 
-    return {
+    return ({
       id: data.id,
       userId: data.user_id,
       score: data.score,
-      questionsAnswered: data.questions_answered,
-      correctAnswers: data.correct_answers,
-      incorrectAnswers: data.incorrect_answers,
-      completed: data.completed,
-      completedAt: data.completed_at
-    }
+      questionsAnswered: data.questions_answered
+    })
   }
 
   /**
@@ -55,12 +47,6 @@ class PlayerStatsService {
    */
   public async updateSession(sessionId: string, updates: UpdateGameSessionData): Promise<boolean> {
     const result = await updateGameSession(sessionId, updates)
-
-    // If session is completed, update player stats
-    if (updates.completed && result.success) {
-      await updatePlayerStatsFromSession(sessionId)
-    }
-
     return result.success
   }
 
@@ -71,16 +57,12 @@ class PlayerStatsService {
     const data = await getGameSession(sessionId)
     if (!data) return null
 
-    return {
+    return ({
       id: data.id,
       userId: data.user_id,
       score: data.score,
-      questionsAnswered: data.questions_answered,
-      correctAnswers: data.correct_answers,
-      incorrectAnswers: data.incorrect_answers,
-      completed: data.completed,
-      completedAt: data.completed_at
-    }
+      questionsAnswered: data.questions_answered
+    })
   }
 
   /**

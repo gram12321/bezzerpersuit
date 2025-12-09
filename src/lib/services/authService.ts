@@ -1,6 +1,6 @@
 import { supabase } from '@/database/supabase'
 import { getUserById, updateUser, checkUsernameExists } from '@/database'
-import type { User } from '@/lib/utils/types'
+import type { User } from '@/lib/utils'
 
 /**
  * Simple authentication service wrapper for Supabase Auth

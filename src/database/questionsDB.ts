@@ -1,6 +1,6 @@
 import { supabase } from '@/database/supabase'
-import type { Question, QuestionCategory, QuestionClass } from '@/lib/utils/types'
-import { createDifficultyScore } from '@/lib/utils/types'
+import type { Question, QuestionCategory, QuestionClass } from '@/lib/utils'
+import { createDifficultyScore } from '@/lib/utils'
 
 /**
  * Database row type from Supabase

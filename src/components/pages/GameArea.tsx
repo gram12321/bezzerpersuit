@@ -1,10 +1,8 @@
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
 import { useGameState } from "@/hooks"
-import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS } from "@/lib/utils/utils"
-import type { LobbyState, QuestionCategory } from '@/lib/utils/types'
-import { QUIZ_CATEGORIES, createDifficultyScore } from '@/lib/utils/types'
+import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS, createDifficultyScore, QUESTIONS_PER_GAME, getCategoryColorClasses, getCategoryEmoji, getDifficultyEmoji, PLAYER_STATE_EMOJIS, STATUS_EMOJIS, getCategoriesByTheme, getShortenedCategoryName } from "@/lib/utils"
+import type { LobbyState, QuestionCategory } from '@/lib/utils'
 import { isCategoryUsed, isDifficultyUsed } from "@/lib/services/gameService"
-import { QUESTIONS_PER_GAME, getCategoryColorClasses, getCategoryEmoji, getDifficultyEmoji, PLAYER_STATE_EMOJIS, STATUS_EMOJIS } from '@/lib/constants'
 import { calculatePlayerPointsForDisplay } from '@/lib/services'
 
 
@@ -207,7 +205,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
   if (gameState.gamePhase === 'category-selection') {
     return (
       <div className="min-h-screen bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-        <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm max-w-3xl w-full">
+        <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm max-w-3xl lg:max-w-5xl w-full">
           <CardHeader>
             <CardTitle className="text-3xl text-white text-center">
               {isCurrentPlayersTurn ? "Your Turn!" : `${currentTurnPlayer?.name}'s Turn`}
@@ -284,7 +282,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
           <CardContent className="space-y-4">
             {isCurrentPlayersTurn ? (
               <>
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid lg:grid-cols-2 gap-4">
                   {/* Category Selection */}
                   <div className="space-y-2">
                     <h3 className="text-white font-semibold text-sm">
@@ -293,28 +291,42 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                         <span className="ml-2 text-xs text-green-400">✓</span>
                       )}
                     </h3>
-                    <div className="grid gap-1.5">
-                      {QUIZ_CATEGORIES.map((category: QuestionCategory) => {
+                    <div className="space-y-2">
+                      {getCategoriesByTheme().map((theme) => {
                         const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayerId)
-                        const isUsed = isCategoryUsed(category, currentPlayer?.usedCategories || [])
                         return (
-                          <Button
-                            key={category}
-                            onClick={() => !isUsed && selectCategory(category)}
-                            disabled={isUsed}
-                            className={cn(
-                              "w-full text-left justify-start h-auto py-2 px-3 text-sm relative",
-                              gameState.selectedCategory === category
-                                ? `${getCategoryColorClasses(category)} border-2 border-white ring-2 ring-white ring-offset-2 ring-offset-slate-900`
-                                : isUsed
-                                ? "bg-slate-800/50 text-slate-600 cursor-not-allowed line-through"
-                                : getCategoryColorClasses(category)
-                            )}
-                          >
-                            <span className="mr-2">{getCategoryEmoji(category)}</span>
-                            {category}
-                            {isUsed && <span className="ml-2 text-xs">{STATUS_EMOJIS.incorrect}</span>}
-                          </Button>
+                          <div key={theme.themeKey} className="space-y-1">
+                            <div className="text-xs font-medium text-slate-400 px-1 flex items-center gap-1">
+                              <span>{theme.emoji}</span>
+                              <span className="hidden md:inline">{theme.name}</span>
+                            </div>
+                            <div className="grid grid-cols-2 gap-1">
+                              {theme.categories.map((category) => {
+                                const isUsed = isCategoryUsed(category as QuestionCategory, currentPlayer?.usedCategories || [])
+                                const shortName = getShortenedCategoryName(category)
+                                return (
+                                  <Button
+                                    key={category}
+                                    onClick={() => !isUsed && selectCategory(category as QuestionCategory)}
+                                    disabled={isUsed}
+                                    className={cn(
+                                      "text-left justify-start h-auto py-1.5 px-2 text-xs relative",
+                                      gameState.selectedCategory === category
+                                        ? `${getCategoryColorClasses(category)} border border-white ring-1 ring-white ring-offset-1 ring-offset-slate-900`
+                                        : isUsed
+                                        ? "bg-slate-800/50 text-slate-600 cursor-not-allowed line-through"
+                                        : getCategoryColorClasses(category)
+                                    )}
+                                    title={category}
+                                  >
+                                    <span className="mr-1.5 shrink-0">{getCategoryEmoji(category)}</span>
+                                    <span className="truncate">{shortName}</span>
+                                    {isUsed && <span className="ml-auto shrink-0 text-xs">{STATUS_EMOJIS.incorrect}</span>}
+                                  </Button>
+                                )
+                              })}
+                            </div>
+                          </div>
                         )
                       })}
                     </div>
@@ -376,7 +388,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
               </>
             ) : (
               <>
-                <div className="grid md:grid-cols-2 gap-4">
+                <div className="grid lg:grid-cols-2 gap-4">
                   {/* Category Selection - Disabled for non-turn players */}
                   <div className="space-y-2">
                     <h3 className="text-white font-semibold text-sm">
@@ -385,29 +397,41 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                         <span className="ml-2 text-xs text-green-400">✓</span>
                       )}
                     </h3>
-                    <div className="grid gap-1.5">
-                      {QUIZ_CATEGORIES.map((category: QuestionCategory) => {
-                        const isUsed = isCategoryUsed(category, currentTurnPlayer?.usedCategories || [])
-                        const isSelected = gameState.currentSelectionCategory === category
-                        return (
-                          <Button
-                            key={category}
-                            disabled={true}
-                            className={cn(
-                              "w-full text-left justify-start h-auto py-2 px-3 text-sm relative cursor-default",
-                              isSelected
-                                ? "bg-purple-600 border-2 border-purple-400 text-white"
-                                : isUsed
-                                ? "bg-slate-800/50 text-slate-600 line-through"
-                                : "bg-slate-700/50 text-slate-300"
-                            )}
-                          >
-                            <span className="mr-2">{getCategoryEmoji(category)}</span>
-                            {category}
-                            {isUsed && <span className="ml-2 text-xs">{STATUS_EMOJIS.incorrect}</span>}
-                          </Button>
-                        )
-                      })}
+                    <div className="space-y-2">
+                      {getCategoriesByTheme().map((theme) => (
+                        <div key={theme.themeKey} className="space-y-1">
+                          <div className="text-xs font-medium text-slate-400 px-1 flex items-center gap-1">
+                            <span>{theme.emoji}</span>
+                            <span className="hidden md:inline">{theme.name}</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-1">
+                            {theme.categories.map((category) => {
+                              const isUsed = isCategoryUsed(category as QuestionCategory, currentTurnPlayer?.usedCategories || [])
+                              const isSelected = gameState.currentSelectionCategory === category
+                              const shortName = getShortenedCategoryName(category)
+                              return (
+                                <Button
+                                  key={category}
+                                  disabled={true}
+                                  className={cn(
+                                    "text-left justify-start h-auto py-1.5 px-2 text-xs relative cursor-default",
+                                    isSelected
+                                      ? "bg-purple-600 border border-purple-400 text-white"
+                                      : isUsed
+                                      ? "bg-slate-800/50 text-slate-600 line-through"
+                                      : "bg-slate-700/50 text-slate-300"
+                                  )}
+                                  title={category}
+                                >
+                                  <span className="mr-1.5 shrink-0">{getCategoryEmoji(category)}</span>
+                                  <span className="truncate">{shortName}</span>
+                                  {isUsed && <span className="ml-auto shrink-0 text-xs">{STATUS_EMOJIS.incorrect}</span>}
+                                </Button>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
 

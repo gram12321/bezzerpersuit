@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Button, Card, CardContent, CardHeader, CardTitle, Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui"
-import type { LobbyState, Player } from '@/lib/utils/types'
+import type { LobbyState, Player } from '@/lib/utils'
 import { 
   createLobby, 
   fillWithAI,
@@ -12,8 +12,7 @@ import {
   updateGameOptions
 } from '@/lib/services'
 import { authService } from '@/lib/services'
-import { cn, getDisplayName } from '@/lib/utils/utils'
-import { PLAYER_STATE_EMOJIS } from '@/lib/constants'
+import { cn, getDisplayName, PLAYER_STATE_EMOJIS } from '@/lib/utils'
 
 interface LobbyAreaProps {
   onStartGame: (lobby: LobbyState) => void

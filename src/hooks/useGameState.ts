@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { Question, Player, LobbyState, GamePhase, QuestionCategory, DifficultyScore } from '@/lib/utils/types'
+import type { Question, Player, LobbyState, GamePhase, QuestionCategory, DifficultyScore } from '@/lib/utils'
 import { fetchRandomQuestions, updateQuestionStatsFromPlayers } from '@/lib/services'
 import { 
   haveAllPlayersAnswered, 
@@ -16,8 +16,8 @@ import {
   resetPlayerDifficulties
 } from '@/lib/services/gameService'
 import { applyScores, isAnswerCorrect } from '@/lib/services/scoringService'
-import { selectAICategory, selectAIDifficulty, generateAIAnswers } from '@/lib/ai/aiLogic'
-import { QUESTIONS_PER_GAME, QUESTION_TIME_LIMIT, SELECTION_TIME_LIMIT, I_KNOW_POWERUPS_PER_PLAYER } from '@/lib/constants'
+import { selectAICategory, selectAIDifficulty, generateAIAnswers } from '@/lib/services/ai/aiLogic'
+import { QUESTIONS_PER_GAME, QUESTION_TIME_LIMIT, SELECTION_TIME_LIMIT, I_KNOW_POWERUPS_PER_PLAYER } from '@/lib/utils'
 
 export interface GameState {
   currentQuestionIndex: number

@@ -1,6 +1,6 @@
 import { supabase } from "@/database/supabase"
-import type { Question } from "@/lib/utils/types"
-import { QUIZ_DIFFICULTY_LEVELS } from "@/lib/utils/utils"
+import type { Question } from "@/lib/utils"
+import { QUIZ_DIFFICULTY_LEVELS } from "@/lib/utils"
 
 export interface AdminQuestionStats {
   totalQuestions: number

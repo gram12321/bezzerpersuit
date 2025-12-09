@@ -1,6 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
-import type { User } from "@/lib/utils/types"
+import type { User } from "./types"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -8,15 +8,23 @@ export function cn(...inputs: ClassValue[]) {
 
 /**
  * Get the display name for a user or guest
- * For guests, returns the nickname from sessionStorage
- * For registered users, returns username
+ * Priority: guestNickname (sessionStorage) > user.username > 'Guest'
+ * This ensures anonymous users show their chosen nickname instead of generated usernames
  */
 export function getDisplayName(user: User | null): string {
-  if (!user) {
-    const guestNickname = sessionStorage.getItem('guestNickname')
-    return guestNickname || 'Guest'
+  // Always check for guest nickname first (even if user exists - for anonymous users)
+  const guestNickname = sessionStorage.getItem('guestNickname')
+  if (guestNickname) {
+    return guestNickname
   }
-  return user.username
+  
+  // Fall back to username if available
+  if (user?.username) {
+    return user.username
+  }
+  
+  // Final fallback
+  return 'Guest'
 }
 
 // ========================================

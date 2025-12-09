@@ -1,6 +1,6 @@
 import { getAllQuestionsForAdmin, deleteQuestionById } from "@/database/adminDB"
 import { supabase } from "@/database/supabase"
-import type { Question } from "@/lib/utils/types"
+import type { Question } from "@/lib/utils"
 
 export async function removeQuestion(questionId: string): Promise<Question[]> {
   await deleteQuestionById(questionId)

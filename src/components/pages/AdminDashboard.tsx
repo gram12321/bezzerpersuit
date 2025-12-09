@@ -2,9 +2,8 @@ import { useEffect, useState } from "react"
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
 import { getAllQuestionsForAdmin, getAdminQuestionStats, removeQuestion, deleteAllUsers, type AdminQuestionStats } from "@/lib/services/adminService"
 import { calculateConfidence } from "@/lib/services"
-import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS } from "@/lib/utils/utils"
-import { getCategoryEmoji, getCategoryColorClasses, getDifficultyEmoji, STATUS_EMOJIS } from "@/lib/constants"
-import type { Question, QuestionCategory } from "@/lib/utils/types"
+import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS, getCategoryEmoji, getCategoryColorClasses, getDifficultyEmoji, STATUS_EMOJIS } from "@/lib/utils"
+import type { Question, QuestionCategory } from "@/lib/utils"
 
 interface AdminDashboardProps {
   onExit: () => void

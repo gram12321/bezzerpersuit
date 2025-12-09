@@ -125,6 +125,7 @@ export interface User {
   id: string
   username: string
   avatarId?: string // Avatar emoji identifier (e.g., 'ninja', 'wizard', 'brain')
+  questionSpoilers?: Record<string, number> // question_id -> spoiler_value mapping
 }
 
 export interface PlayerStats {
@@ -140,8 +141,4 @@ export interface GameSession {
   userId?: string // nullable for anonymous play
   score: number
   questionsAnswered: number
-  correctAnswers: number
-  incorrectAnswers: number
-  completed: boolean
-  completedAt?: string
 }

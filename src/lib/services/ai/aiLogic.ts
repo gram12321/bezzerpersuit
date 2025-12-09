@@ -1,5 +1,5 @@
-import type { Question, Player, QuestionCategory, DifficultyScore } from '@/lib/utils/types'
-import { QUIZ_CATEGORIES, createDifficultyScore } from '@/lib/utils/types'
+import type { Question, Player, QuestionCategory, DifficultyScore } from '@/lib/utils'
+import { QUIZ_CATEGORIES, createDifficultyScore } from '@/lib/utils'
 import { getAvailableCategories, getAvailableDifficulties } from '@/lib/services/gameService'
 
 /**

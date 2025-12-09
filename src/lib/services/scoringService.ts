@@ -1,4 +1,4 @@
-import type { Player, Question } from '@/lib/utils/types'
+import type { Player, Question } from '@/lib/utils'
 
 /**
  * Scoring Service - Business logic for calculating and distributing points

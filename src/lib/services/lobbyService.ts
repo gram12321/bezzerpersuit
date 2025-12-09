@@ -1,10 +1,10 @@
-import type { LobbyState, Player, GameOptions } from '@/lib/utils/types'
+import type { LobbyState, Player, GameOptions } from '@/lib/utils'
 import { 
   QUESTIONS_PER_GAME, 
   QUESTION_TIME_LIMIT, 
   SELECTION_TIME_LIMIT, 
   I_KNOW_POWERUPS_PER_PLAYER 
-} from '@/lib/constants'
+} from '@/lib/utils'
 
 /**
  * Lobby Service - Business logic for managing game lobbies

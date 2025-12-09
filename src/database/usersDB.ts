@@ -9,6 +9,7 @@ interface UserData {
   id: string
   username: string
   avatar_id?: string
+  question_spoilers?: Record<string, number>
 }
 
 /**
@@ -104,5 +105,79 @@ export async function checkUsernameExists(username: string): Promise<boolean> {
   } catch (error) {
     console.error('Error checking username:', error)
     return false
+  }
+}
+
+/**
+ * Increment spoiler value for a question
+ * +0.5 when shown, +1 when answered correctly
+ */
+export async function incrementQuestionSpoiler(
+  userId: string,
+  questionId: string,
+  increment: number
+): Promise<void> {
+  try {
+    // Get current spoilers
+    const { data: user } = await supabase
+      .from('users')
+      .select('question_spoilers')
+      .eq('id', userId)
+      .single()
+
+    const currentSpoilers = (user?.question_spoilers as Record<string, number>) || {}
+    const currentValue = currentSpoilers[questionId] || 0
+    const newValue = currentValue + increment
+
+    // Update with new value
+    const { error } = await supabase
+      .from('users')
+      .update({
+        question_spoilers: {
+          ...currentSpoilers,
+          [questionId]: newValue
+        }
+      })
+      .eq('id', userId)
+
+    if (error) {
+      console.error('Error updating question spoiler:', error)
+    }
+  } catch (error) {
+    console.error('Error incrementing spoiler:', error)
+  }
+}
+
+/**
+ * Get spoiler values for questions
+ */
+export async function getQuestionSpoilers(
+  userId: string,
+  questionIds?: string[]
+): Promise<Record<string, number>> {
+  try {
+    const { data: user } = await supabase
+      .from('users')
+      .select('question_spoilers')
+      .eq('id', userId)
+      .single()
+
+    const allSpoilers = (user?.question_spoilers as Record<string, number>) || {}
+
+    if (!questionIds) {
+      return allSpoilers
+    }
+
+    // Filter to only requested questions
+    const filtered: Record<string, number> = {}
+    for (const qId of questionIds) {
+      if (allSpoilers[qId]) {
+        filtered[qId] = allSpoilers[qId]
+      }
+    }
+    return filtered
+  } catch (error) {
+    console.error('Error getting question spoilers:', error)
+    return {}
   }
 }

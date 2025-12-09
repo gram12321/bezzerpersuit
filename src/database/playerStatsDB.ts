@@ -18,10 +18,6 @@ interface GameSessionData {
   user_id?: string
   score: number
   questions_answered: number
-  correct_answers: number
-  incorrect_answers: number
-  completed: boolean
-  completed_at?: string
 }
 
 /**
