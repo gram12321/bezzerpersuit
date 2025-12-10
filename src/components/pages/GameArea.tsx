@@ -1,6 +1,6 @@
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
 import { useGameState } from "@/hooks"
-import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS, createDifficultyScore, QUESTIONS_PER_GAME, getCategoryColorClasses, getCategoryEmoji, getDifficultyEmoji, PLAYER_STATE_EMOJIS, STATUS_EMOJIS, getCategoriesByTheme, getShortenedCategoryName } from "@/lib/utils"
+import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS, createDifficultyScore, QUESTIONS_PER_GAME, getCategoryColorClasses, getCategoryEmoji, getDifficultyEmoji, PLAYER_STATE_EMOJIS, STATUS_EMOJIS, getCategoriesByTheme, getShortenedCategoryName, getAvatarEmoji } from "@/lib/utils"
 import type { LobbyState, QuestionCategory } from '@/lib/utils'
 import { isCategoryUsed, isDifficultyUsed } from "@/lib/services/gameService"
 import { calculatePlayerPointsForDisplay } from '@/lib/services'
@@ -164,9 +164,9 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                     )}>
                       {index + 1}
                     </div>
-                    <div className="text-white font-medium">
-                      {player.name}
-                      {player.isAI && ' 🤖'}
+                    <div className="text-white font-medium flex items-center gap-2">
+                      <span className="text-lg">{getAvatarEmoji(player.avatar || (player.isAI ? 'robot' : 'default'))}</span>
+                      <span>{player.name}</span>
                     </div>
                   </div>
                   <div className="text-purple-300 font-bold">
@@ -733,8 +733,8 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                             >
                               {usedIKnow && !isTurnPlayer && <span className="animate-pulse">⚡</span>}
                               {isTurnPlayer && <span>👑</span>}
+                              <span className="text-sm mr-1">{getAvatarEmoji(player.avatar || (player.isAI ? 'robot' : 'default'))}</span>
                               <span>{player.name}</span>
-                              {player.isAI && <span>🤖</span>}
                             </div>
                           )
                         })}
@@ -848,10 +848,8 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
                               {isTurnPlayer && <span className="text-yellow-400">👑</span>}
-                              <span className="text-white font-medium">
-                                {player.name}
-                                {player.isAI && ' 🤖'}
-                              </span>
+                              <span className="text-sm mr-1">{getAvatarEmoji(player.avatar || (player.isAI ? 'robot' : 'default'))}</span>
+                              <span className="text-white font-medium">{player.name}</span>
                               <span className={cn(
                                 "text-xs px-2 py-1 rounded",
                                 isCorrect ? "bg-green-600/30 text-green-300" : "bg-red-600/30 text-red-300"

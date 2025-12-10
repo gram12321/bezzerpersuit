@@ -12,7 +12,7 @@ import {
   updateGameOptions
 } from '@/lib/services'
 import { authService } from '@/lib/services'
-import { cn, PLAYER_STATE_EMOJIS } from '@/lib/utils'
+import { cn, PLAYER_STATE_EMOJIS, getAvatarEmoji } from '@/lib/utils'
 import { AI_PERSONALITIES } from '@/lib/constants'
 
 interface LobbyAreaProps {
@@ -240,7 +240,7 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
                       "w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold",
                       player.isAI ? "bg-purple-600/30 text-purple-300" : "bg-blue-600/30 text-blue-300"
                     )}>
-                      {player.isAI ? PLAYER_STATE_EMOJIS.ai : '👤'}
+                      {getAvatarEmoji(player.avatar || (player.isAI ? 'robot' : 'default'))}
                     </div>
                     <div>
                       <div className="text-white font-semibold">{player.name}</div>
@@ -337,7 +337,7 @@ export function LobbyArea({ onStartGame, onExit }: LobbyAreaProps) {
                 >
                   {personalityOptions.map(p => (
                     <option key={p.id} value={p.id}>
-                      {p.avatar} {p.name}
+                      {getAvatarEmoji(p.avatar)} {p.name}
                     </option>
                   ))}
                 </select>

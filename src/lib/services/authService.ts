@@ -31,6 +31,19 @@ class AuthService {
   }
 
   /**
+   * Check if a username is already taken
+   */
+  public async isUsernameTaken(username: string): Promise<boolean> {
+    try {
+      return await checkUsernameExists(username)
+    } catch (error) {
+      console.error('Error checking username availability:', error)
+      // On error, be conservative and treat as taken to avoid conflict
+      return true
+    }
+  }
+
+  /**
    * Initialize auth state and listen for changes
    */
   private async initializeAuth() {
@@ -61,7 +74,8 @@ class AuthService {
         this.setCurrentUser({
           id: data.id,
           username: data.username,
-          avatarId: data.avatar_id
+          avatarId: data.avatar_url,
+          avatarColor: (data as any).avatar_color
         })
       }
     } catch (error) {
@@ -232,7 +246,7 @@ class AuthService {
   /**
    * Update user profile
    */
-  public async updateProfile(updates: Partial<Pick<User, 'username' | 'avatarId'>>): Promise<AuthResult> {
+  public async updateProfile(updates: Partial<Pick<User, 'username' | 'avatarId' | 'avatarColor'>>): Promise<AuthResult> {
     if (!this.currentUser) {
       return { success: false, error: 'Not authenticated' }
     }
@@ -240,7 +254,8 @@ class AuthService {
     try {
       const updateData: any = {}
       if (updates.username !== undefined) updateData.username = updates.username
-      if (updates.avatarId !== undefined) updateData.avatar_id = updates.avatarId
+      if (updates.avatarId !== undefined) updateData.avatar_url = updates.avatarId
+      if ((updates as any).avatarColor !== undefined) updateData.avatar_color = (updates as any).avatarColor
 
       const result = await updateUser(this.currentUser.id, updateData)
 

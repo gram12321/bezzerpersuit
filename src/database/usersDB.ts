@@ -8,7 +8,8 @@ import { supabase } from './supabase'
 interface UserData {
   id: string
   username: string
-  avatar_id?: string
+  avatar_url?: string
+  avatar_color?: string
   question_spoilers?: Record<string, number>
 }
 
@@ -45,7 +46,8 @@ export async function createUser(userData: UserData): Promise<{ success: boolean
       .insert({
         id: userData.id,
         username: userData.username,
-        avatar_id: userData.avatar_id
+        avatar_url: userData.avatar_url,
+        avatar_color: userData.avatar_color
       })
 
     if (error) {
@@ -74,8 +76,11 @@ export async function updateUser(
       .eq('id', userId)
 
     if (error) {
-      console.error('Error updating user:', error)
-      return { success: false, error: error.message }
+      // Suppress noisy console errors for expected constraint violations
+      const msg = error?.message || String(error)
+      const isDuplicate = (error && (error.code === '23505' || (typeof msg === 'string' && msg.toLowerCase().includes('duplicate'))))
+      if (!isDuplicate) console.error('Error updating user:', error)
+      return { success: false, error: msg }
     }
 
     return { success: true }

@@ -140,6 +140,7 @@ export interface User {
   id: string
   username: string
   avatarId?: string // Avatar emoji identifier (e.g., 'ninja', 'wizard', 'brain')
+  avatarColor?: string // Optional color id for avatar background/styling
   questionSpoilers?: Record<string, number> // question_id -> spoiler_value mapping
 }
 

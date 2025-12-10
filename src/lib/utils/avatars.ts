@@ -24,11 +24,22 @@ export const AVATAR_OPTIONS = [
   { id: 'rocket', emoji: '🚀', label: 'Rocket' }
 ] as const
 
+// Added a couple personality-focused avatars
+// - `dice` for unpredictable/wildcard personalities
+// - `graduate` for novice/student-like personalities
+export const EXTRA_AVATARS = [
+  { id: 'dice', emoji: '🎲', label: 'Dice' },
+  { id: 'graduate', emoji: '🧑‍🎓', label: 'Graduate' },
+] as const
+
+// Merge into AVATAR_OPTIONS for lookup convenience
+export const ALL_AVATAR_OPTIONS = [...AVATAR_OPTIONS, ...EXTRA_AVATARS] as const
+
 /**
  * Get avatar emoji by ID
  */
 export function getAvatarEmoji(avatarId: string): string {
-  const avatar = AVATAR_OPTIONS.find(a => a.id === avatarId)
+  const avatar = ALL_AVATAR_OPTIONS.find(a => a.id === avatarId) || AVATAR_OPTIONS.find(a => a.id === avatarId)
   return avatar?.emoji || '👤'
 }
 
@@ -36,7 +47,7 @@ export function getAvatarEmoji(avatarId: string): string {
  * Get avatar label by ID
  */
 export function getAvatarLabel(avatarId: string): string {
-  const avatar = AVATAR_OPTIONS.find(a => a.id === avatarId)
+  const avatar = ALL_AVATAR_OPTIONS.find(a => a.id === avatarId) || AVATAR_OPTIONS.find(a => a.id === avatarId)
   return avatar?.label || 'Default'
 }
 

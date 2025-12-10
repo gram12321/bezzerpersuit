@@ -1,9 +1,10 @@
 import type { AIPersonality } from '@/lib/utils'
 
+// Avatars use the avatar ID keys defined in `src/lib/utils/avatars.ts`
 export const PROFESSOR: AIPersonality = {
   id: 'professor',
   name: 'The Professor',
-  avatar: '🧑‍🏫',
+  avatar: 'scientist',
   description: 'Academic expert, excels in science and history.',
   baseSuccessRate: 0.80,
   categoryModifiers: {
@@ -25,7 +26,7 @@ export const PROFESSOR: AIPersonality = {
 export const NOVICE: AIPersonality = {
   id: 'novice',
   name: 'The Novice',
-  avatar: '🧑‍🎓',
+  avatar: 'graduate',
   description: 'Beginner, no particular strengths.',
   baseSuccessRate: 0.35,
   categoryModifiers: {
@@ -42,7 +43,7 @@ export const NOVICE: AIPersonality = {
 export const SPORTS_FANATIC: AIPersonality = {
   id: 'sports_fanatic',
   name: 'Sports Fanatic',
-  avatar: '🏅',
+  avatar: 'trophy',
   description: 'Excels in sports, struggles in science.',
   baseSuccessRate: 0.60,
   categoryModifiers: {
@@ -63,7 +64,7 @@ export const SPORTS_FANATIC: AIPersonality = {
 export const JACK_OF_ALL_TRADES: AIPersonality = {
   id: 'jack_of_all_trades',
   name: 'Jack-of-All-Trades',
-  avatar: '🧑‍🔬',
+  avatar: 'gamer',
   description: 'Balanced competitor, slight bonuses in many categories.',
   baseSuccessRate: 0.65,
   categoryModifiers: {
@@ -83,7 +84,7 @@ export const JACK_OF_ALL_TRADES: AIPersonality = {
 export const WILDCARD: AIPersonality = {
   id: 'wildcard',
   name: 'The Wildcard',
-  avatar: '🎲',
+  avatar: 'dice',
   description: 'Unpredictable, moderate skill in all categories.',
   baseSuccessRate: 0.50,
   categoryModifiers: {

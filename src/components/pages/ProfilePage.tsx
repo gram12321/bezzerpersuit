@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { User, LogOut, Target, TrendingUp } from 'lucide-react'
+import { User, LogOut, Target, TrendingUp, Edit } from 'lucide-react'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui'
 import { authService, playerStatsService } from '@/lib/services'
 import { STATUS_EMOJIS } from '@/lib/utils'
+import { AVATAR_OPTIONS, getAvatarEmoji } from '@/lib/utils/avatars'
 import type { User as UserType, PlayerStats } from '@/lib/utils'
 
 interface ProfilePageProps {
@@ -14,6 +15,11 @@ export function ProfilePage({ onBack, onSignOut }: ProfilePageProps) {
   const [user, setUser] = useState<UserType | null>(null)
   const [stats, setStats] = useState<PlayerStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
 
   useEffect(() => {
     loadUserData()
@@ -30,6 +36,57 @@ export function ProfilePage({ onBack, onSignOut }: ProfilePageProps) {
     }
     
     setIsLoading(false)
+  }
+
+  const startEdit = () => {
+    setSaveError(null)
+    setEditName(user?.username || '')
+    setSelectedAvatar(user?.avatarId || AVATAR_OPTIONS[0].id)
+    setIsEditing(true)
+  }
+
+  const cancelEdit = () => {
+    setIsEditing(false)
+    setSaveError(null)
+  }
+
+  const handleSave = async () => {
+    if (!user) return
+    setIsSaving(true)
+    setSaveError(null)
+
+    const updates: any = {}
+    if (editName && editName.trim() !== user.username) updates.username = editName.trim()
+    if (selectedAvatar && selectedAvatar !== user.avatarId) updates.avatarId = selectedAvatar
+
+    // Pre-check username availability to avoid server 409 conflict and noisy network errors
+    if (updates.username) {
+      const taken = await authService.isUsernameTaken(updates.username)
+      if (taken) {
+        setSaveError('That username is already taken. Please choose another.')
+        setIsSaving(false)
+        return
+      }
+    }
+
+    const result = await authService.updateProfile(updates)
+
+
+    if (result.success) {
+      await loadUserData()
+      setIsEditing(false)
+    } else {
+      // Friendly error for duplicate username
+      if (result.error && result.error.toLowerCase().includes('duplicate') && result.error.toLowerCase().includes('username')) {
+        setSaveError('That username is already taken. Please choose another.')
+      } else {
+        setSaveError(result.error || 'Failed to save profile')
+      }
+      // Suppress console error for user-caused issues
+      if (result.error && result.error.toLowerCase().includes('duplicate')) return
+    }
+
+    setIsSaving(false)
   }
 
   const handleSignOut = async () => {
@@ -78,7 +135,7 @@ export function ProfilePage({ onBack, onSignOut }: ProfilePageProps) {
           <div className="flex items-center gap-4">
             <div className="w-20 h-20 rounded-full bg-purple-600 flex items-center justify-center text-3xl">
               {user.avatarId ? (
-                <span className="text-4xl">{user.avatarId}</span>
+                <span className="text-4xl">{getAvatarEmoji(user.avatarId)}</span>
               ) : (
                 <User className="h-8 w-8 text-white" />
               )}
@@ -89,16 +146,83 @@ export function ProfilePage({ onBack, onSignOut }: ProfilePageProps) {
           </div>
           <div className="flex gap-2">
             {onBack && (
-              <Button variant="outline" onClick={onBack} className="border-slate-600 text-white hover:bg-slate-800 hover:text-white">
+              <Button size="sm" variant="outline" onClick={onBack} className="border-slate-600 text-white hover:bg-slate-800 hover:text-white">
                 Back
               </Button>
             )}
-            <Button onClick={handleSignOut} variant="outline" className="border-slate-600 text-white hover:bg-red-900/30 hover:text-white hover:border-red-500">
+            <Button size="sm" variant="outline" onClick={startEdit} className="border-slate-600 text-white hover:bg-slate-800/40">
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleSignOut} className="border-red-600 text-white hover:bg-red-900/30 hover:text-white hover:border-red-500">
               <LogOut className="h-4 w-4 mr-2" />
               Sign Out
             </Button>
           </div>
         </div>
+
+        {/* Edit form (inline) */}
+        {isEditing && (
+          <Card className="bg-slate-900/60 border-slate-700">
+            <CardHeader>
+              <CardTitle className="text-white">Edit Profile</CardTitle>
+              <CardDescription className="text-slate-400">Change your display name and avatar</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm text-slate-300 block mb-2">Display Name</label>
+                  <input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full bg-transparent border border-slate-700 rounded-md p-2 text-white placeholder:text-slate-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-sm text-slate-300 block mb-2">Choose Avatar</label>
+                  <div className="grid grid-cols-6 gap-2">
+                    {AVATAR_OPTIONS.map((a) => (
+                      <button
+                        key={a.id}
+                        type="button"
+                        onClick={() => setSelectedAvatar(a.id)}
+                        aria-pressed={selectedAvatar === a.id}
+                        className={`p-3 rounded-md flex items-center justify-center text-2xl transition-colors focus:outline-none ${selectedAvatar === a.id ? 'bg-white/10 ring-2 ring-white' : 'hover:bg-slate-800/40'}`}
+                      >
+                        <span>{a.emoji}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="text-sm text-slate-300 block">Preview</label>
+                    <div className="mt-2 w-20 h-20 rounded-full bg-white flex items-center justify-center text-4xl text-purple-700">
+                      <span>{getAvatarEmoji(selectedAvatar || AVATAR_OPTIONS[0].id)}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={cancelEdit} disabled={isSaving} className="border-slate-600 text-white hover:bg-slate-800/30">
+                      Cancel
+                    </Button>
+                    <Button size="sm" onClick={handleSave} disabled={isSaving} className="bg-purple-600 hover:bg-purple-500">
+                      {isSaving ? 'Saving...' : 'Save Changes'}
+                    </Button>
+                  </div>
+                </div>
+
+                {saveError && (
+                  <div className="text-sm font-semibold text-red-700 bg-red-100 border border-red-300 p-3 rounded mt-2">
+                    {saveError}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
