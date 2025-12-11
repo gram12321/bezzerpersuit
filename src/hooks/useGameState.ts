@@ -271,10 +271,10 @@ export function useGameState(initialLobby?: LobbyState) {
             throw new Error('No questions found')
           }
           setGameState(prev => {
-            // Mark category and difficulty as used for the current turn player
-            const turnPlayerIndex = prev.players.findIndex(p => p.id === prev.currentTurnPlayerId)
-            let updatedPlayers = markPlayerCategoryUsed(prev.players, turnPlayerIndex, prev.selectedCategory!)
-            updatedPlayers = markPlayerDifficultyUsed(updatedPlayers, turnPlayerIndex, prev.selectedDifficulty!)
+            // Mark category and difficulty as used for the current turn player (use IDs)
+            const turnPlayerId = prev.currentTurnPlayerId
+            let updatedPlayers = markPlayerCategoryUsed(prev.players, turnPlayerId, prev.selectedCategory!)
+            updatedPlayers = markPlayerDifficultyUsed(updatedPlayers, turnPlayerId, prev.selectedDifficulty!)
             updatedPlayers = resetPlayerAnswers(updatedPlayers)
             return {
               ...prev,
@@ -355,8 +355,10 @@ export function useGameState(initialLobby?: LobbyState) {
             currentQuestion
           )
 
-          const turnPlayerAnswer = finalPlayers.find(p => p.id === prev.currentTurnPlayerId)?.selectedAnswer!
-          const turnPlayerCorrect = isAnswerCorrect(turnPlayerAnswer, currentQuestion)
+          const turnPlayerAnswer = finalPlayers.find(p => p.id === prev.currentTurnPlayerId)?.selectedAnswer ?? null
+          const turnPlayerCorrect = turnPlayerAnswer !== null
+            ? isAnswerCorrect(turnPlayerAnswer, currentQuestion)
+            : false
 
 
 
@@ -428,22 +430,32 @@ export function useGameState(initialLobby?: LobbyState) {
         }
       }
 
+      // Determine current index and compute next turn player index
       const currentIndex = prev.players.findIndex(p => p.id === prev.currentTurnPlayerId)
       const nextTurnPlayerIndex = getNextTurnPlayerIndex(currentIndex === -1 ? 0 : currentIndex, prev.players.length)
-      const nextTurnPlayerId = prev.players[nextTurnPlayerIndex]?.id || ''
+      const nextPlayer = prev.players[nextTurnPlayerIndex]
+
+      if (!nextPlayer) {
+        return {
+          ...prev,
+          isGameActive: false,
+          error: 'Next turn player not found. Game cannot continue.'
+        }
+      }
+
+      const nextTurnPlayerId = nextPlayer.id
       const questionTimeLimit = initialLobby?.gameOptions.questionTimeLimit || QUESTION_TIME_LIMIT
       const selectionTimeLimit = initialLobby?.gameOptions.selectionTimeLimit || SELECTION_TIME_LIMIT
 
       // Check if next turn player needs their categories or difficulties reset
-      const nextPlayer = prev.players[nextTurnPlayerIndex]
       let updatedPlayers = prev.players
 
       if (areAllCategoriesUsed(nextPlayer.usedCategories || [])) {
-        updatedPlayers = resetPlayerCategories(updatedPlayers, nextTurnPlayerIndex)
+        updatedPlayers = resetPlayerCategories(updatedPlayers, nextPlayer.id)
       }
 
       if (areAllDifficultiesUsed(nextPlayer.usedDifficulties || [])) {
-        updatedPlayers = resetPlayerDifficulties(updatedPlayers, nextTurnPlayerIndex)
+        updatedPlayers = resetPlayerDifficulties(updatedPlayers, nextPlayer.id)
       }
 
       updatedPlayers = resetPlayerAnswers(updatedPlayers).map(p => ({ ...p, usedIKnowThisRound: false }))

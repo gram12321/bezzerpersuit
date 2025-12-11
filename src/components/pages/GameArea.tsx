@@ -784,7 +784,9 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                       const isCorrect = player.selectedAnswer === currentQuestion.correctAnswerIndex
                       const turnPlayerIndex = gameState.players.findIndex(p => p.id === gameState.currentTurnPlayerId)
                       const isTurnPlayer = player.id === gameState.currentTurnPlayerId
-                      const turnPlayerCorrect = gameState.players[turnPlayerIndex]?.selectedAnswer === currentQuestion.correctAnswerIndex
+                      const turnPlayerCorrect = turnPlayerIndex !== -1
+                        ? gameState.players[turnPlayerIndex]?.selectedAnswer === currentQuestion.correctAnswerIndex
+                        : false
                       const basePoints = parseFloat((1 + currentQuestion.difficulty).toFixed(2))
                       const difficultyBonus = parseFloat(currentQuestion.difficulty.toFixed(2))
 

@@ -141,11 +141,11 @@ export function isDifficultyUsed(
  */
 export function markPlayerCategoryUsed(
   players: Player[],
-  playerIndex: number,
+  playerId: string,
   category: QuestionCategory
 ): Player[] {
-  return players.map((p, idx) => {
-    if (idx === playerIndex) {
+  return players.map(p => {
+    if (p.id === playerId) {
       const usedCategories = p.usedCategories || []
       if (isCategoryUsed(category, usedCategories)) {
         return p
@@ -161,11 +161,11 @@ export function markPlayerCategoryUsed(
  */
 export function markPlayerDifficultyUsed(
   players: Player[],
-  playerIndex: number,
+  playerId: string,
   difficulty: DifficultyScore
 ): Player[] {
-  return players.map((p, idx) => {
-    if (idx === playerIndex) {
+  return players.map(p => {
+    if (p.id === playerId) {
       const usedDifficulties = p.usedDifficulties || []
       if (isDifficultyUsed(difficulty, usedDifficulties)) {
         return p
@@ -217,10 +217,10 @@ export function areAllDifficultiesUsed(usedDifficulties: DifficultyScore[]): boo
  */
 export function resetPlayerCategories(
   players: Player[],
-  playerIndex: number
+  playerId: string
 ): Player[] {
-  return players.map((p, idx) => {
-    if (idx === playerIndex) {
+  return players.map(p => {
+    if (p.id === playerId) {
       return { ...p, usedCategories: [] }
     }
     return p
@@ -232,10 +232,10 @@ export function resetPlayerCategories(
  */
 export function resetPlayerDifficulties(
   players: Player[],
-  playerIndex: number
+  playerId: string
 ): Player[] {
-  return players.map((p, idx) => {
-    if (idx === playerIndex) {
+  return players.map(p => {
+    if (p.id === playerId) {
       return { ...p, usedDifficulties: [] }
     }
     return p
