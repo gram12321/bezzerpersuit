@@ -48,12 +48,16 @@ export function haveAllPlayersAnswered(players: Player[]): boolean {
   return players.every(p => p.hasAnswered)
 }
 
-
 /**
- * Get the next turn player index
+ * Get the next turn player's ID given the current turn player's ID and players list
+ * This centralizes index lookup and prevents callers from computing indices themselves.
  */
-export function getNextTurnPlayerIndex(currentIndex: number, totalPlayers: number): number {
-  return (currentIndex + 1) % totalPlayers
+export function getNextTurnPlayerId(currentTurnPlayerId: string, players: Player[]): string {
+  if (!players || players.length === 0) return ''
+  const currentIndex = players.findIndex(p => p.id === currentTurnPlayerId)
+  const startIndex = currentIndex === -1 ? 0 : currentIndex
+  const nextIndex = (startIndex + 1) % players.length
+  return players[nextIndex]?.id || ''
 }
 
 /**

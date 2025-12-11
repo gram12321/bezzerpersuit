@@ -3,7 +3,7 @@ import type { Question, Player, LobbyState, GamePhase, QuestionCategory, Difficu
 import { fetchRandomQuestions, updateQuestionStatsFromPlayers, playerStatsService, updatePlayerSpoilerValues } from '@/lib/services'
 import {
   haveAllPlayersAnswered,
-  getNextTurnPlayerIndex,
+  getNextTurnPlayerId,
   isLastQuestion,
   autoSubmitUnansweredPlayers,
   resetPlayerAnswers,
@@ -312,8 +312,7 @@ export function useGameState(initialLobby?: LobbyState) {
 
     setGameState(prev => {
       // First, AIs decide whether to use boosts
-      const turnPlayerIndex = prev.players.findIndex(p => p.id === prev.currentTurnPlayerId)
-      let updatedPlayers = processAIBoosts(prev.players, currentQuestion, turnPlayerIndex)
+      let updatedPlayers = processAIBoosts(prev.players, currentQuestion, prev.currentTurnPlayerId)
       // Then, AIs generate their answers
       updatedPlayers = generateAIAnswers(updatedPlayers, currentQuestion)
 
@@ -430,20 +429,17 @@ export function useGameState(initialLobby?: LobbyState) {
         }
       }
 
-      // Determine current index and compute next turn player index
-      const currentIndex = prev.players.findIndex(p => p.id === prev.currentTurnPlayerId)
-      const nextTurnPlayerIndex = getNextTurnPlayerIndex(currentIndex === -1 ? 0 : currentIndex, prev.players.length)
-      const nextPlayer = prev.players[nextTurnPlayerIndex]
+      // Compute next turn player ID using helper to avoid index misuse
+      const nextTurnPlayerId = getNextTurnPlayerId(prev.currentTurnPlayerId, prev.players)
+      const nextPlayer = prev.players.find(p => p.id === nextTurnPlayerId)
 
-      if (!nextPlayer) {
+      if (!nextPlayer || !nextTurnPlayerId) {
         return {
           ...prev,
           isGameActive: false,
           error: 'Next turn player not found. Game cannot continue.'
         }
       }
-
-      const nextTurnPlayerId = nextPlayer.id
       const questionTimeLimit = initialLobby?.gameOptions.questionTimeLimit || QUESTION_TIME_LIMIT
       const selectionTimeLimit = initialLobby?.gameOptions.selectionTimeLimit || SELECTION_TIME_LIMIT
 

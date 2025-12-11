@@ -782,11 +782,9 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                   <div className="space-y-2">
                     {gameState.players.map((player, index) => {
                       const isCorrect = player.selectedAnswer === currentQuestion.correctAnswerIndex
-                      const turnPlayerIndex = gameState.players.findIndex(p => p.id === gameState.currentTurnPlayerId)
                       const isTurnPlayer = player.id === gameState.currentTurnPlayerId
-                      const turnPlayerCorrect = turnPlayerIndex !== -1
-                        ? gameState.players[turnPlayerIndex]?.selectedAnswer === currentQuestion.correctAnswerIndex
-                        : false
+                      const turnPlayer = gameState.players.find(p => p.id === gameState.currentTurnPlayerId)
+                      const turnPlayerCorrect = turnPlayer ? turnPlayer.selectedAnswer === currentQuestion.correctAnswerIndex : false
                       const basePoints = parseFloat((1 + currentQuestion.difficulty).toFixed(2))
                       const difficultyBonus = parseFloat(currentQuestion.difficulty.toFixed(2))
 
@@ -795,14 +793,14 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                         player,
                         index,
                         gameState.players,
-                        turnPlayerIndex,
+                        gameState.currentTurnPlayerId,
                         currentQuestion
                       )
 
                       // Count how many others got it right for explanation
                       const othersCorrect = isTurnPlayer
-                        ? gameState.players.filter((p, i) => i !== index && p.selectedAnswer === currentQuestion.correctAnswerIndex).length
-                        : gameState.players.filter((p, i) => i !== turnPlayerIndex && i !== index && p.selectedAnswer === currentQuestion.correctAnswerIndex).length
+                        ? gameState.players.filter((p) => p.id !== player.id && p.selectedAnswer === currentQuestion.correctAnswerIndex).length
+                        : gameState.players.filter((p) => p.id !== gameState.currentTurnPlayerId && p.id !== player.id && p.selectedAnswer === currentQuestion.correctAnswerIndex).length
 
                       // Generate explanation with icons
                       const usedIKnow = player.usedIKnowThisRound
