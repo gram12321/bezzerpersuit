@@ -128,17 +128,25 @@ function calculatePlayerPoints(
  * - Points are reduced based on how many other players also answered correctly
  * 
  * @param players - All players with their answers
- * @param currentTurnPlayerIndex - Index of the player whose turn it is
+ * @param currentTurnPlayerId - ID of the player whose turn it is
  * @param question - The current question
  * @returns Updated players array with new scores added
  */
 export function applyScores(
   players: Player[],
-  currentTurnPlayerIndex: number,
+  currentTurnPlayerId: string,
   question: Question
 ): Player[] {
+  const turnPlayerIndex = players.findIndex(p => p.id === currentTurnPlayerId)
+
+  // Ensure turn player exists
+  if (turnPlayerIndex === -1) {
+    console.error('Turn player not found in players array:', currentTurnPlayerId, players.map(p => p.id))
+    throw new Error(`Turn player with ID ${currentTurnPlayerId} not found in players array`)
+  }
+
   return players.map((player, index) => {
-    const earnedPoints = calculatePlayerPoints(player, index, players, currentTurnPlayerIndex, question)
+    const earnedPoints = calculatePlayerPoints(player, index, players, turnPlayerIndex, question)
 
     if (earnedPoints === 0) return player
 

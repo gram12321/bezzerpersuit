@@ -34,7 +34,7 @@ export interface GameState {
   players: Player[]
   currentPlayerId: string
   gamePhase: GamePhase
-  currentTurnPlayerIndex: number
+  currentTurnPlayerId: string // canonical turn player reference
   selectedCategory: QuestionCategory | null
   selectedDifficulty: DifficultyScore | null
   currentSelectionCategory: QuestionCategory | null
@@ -89,7 +89,6 @@ const updateAllGameStats = async (question: Question, players: Player[]) => {
   if (currentPlayerInGame && !currentPlayerInGame.isAI) {
     const wasCorrect = currentPlayerInGame.selectedAnswer === question.correctAnswerIndex
     playerStatsService.updateStats(currentUser.id, wasCorrect)
-      .then(() => console.log('Stats updated for user', currentUser?.id))
       .catch(e => console.error('Player stats update error:', e))
   }
 }
@@ -114,7 +113,7 @@ export function useGameState(initialLobby?: LobbyState) {
     })),
     currentPlayerId: initialLobby?.players.find(p => !p.isAI)?.id || '',
     gamePhase: 'category-selection',
-    currentTurnPlayerIndex: 0,
+    currentTurnPlayerId: (initialLobby?.players && initialLobby.players.length > 0) ? initialLobby.players[0].id : '',
     selectedCategory: null,
     selectedDifficulty: null,
     currentSelectionCategory: null,
@@ -131,6 +130,7 @@ export function useGameState(initialLobby?: LobbyState) {
       const questionTimeLimit = lobby?.gameOptions.questionTimeLimit || QUESTION_TIME_LIMIT
       const selectionTimeLimit = lobby?.gameOptions.selectionTimeLimit || SELECTION_TIME_LIMIT
       const iKnowPowerups = lobby?.gameOptions.iKnowPowerupsPerPlayer ?? I_KNOW_POWERUPS_PER_PLAYER
+      const firstTurnPlayerId = (players && players.length > 0) ? players[0].id : ''
 
       return {
         currentQuestionIndex: 0,
@@ -155,7 +155,7 @@ export function useGameState(initialLobby?: LobbyState) {
         })),
         currentPlayerId,
         gamePhase: 'category-selection' as GamePhase,
-        currentTurnPlayerIndex: 0,
+        currentTurnPlayerId: firstTurnPlayerId,
         selectedCategory: null,
         selectedDifficulty: null,
         currentSelectionCategory: null,
@@ -172,7 +172,11 @@ export function useGameState(initialLobby?: LobbyState) {
       setGameState(prev => {
         if (prev.selectionTimeRemaining <= 1) {
           // Time's up - auto-select using AI logic
-          const currentPlayer = prev.players[prev.currentTurnPlayerIndex]
+          const currentPlayer = prev.players.find(p => p.id === prev.currentTurnPlayerId)
+          if (!currentPlayer) {
+            return { ...prev, selectionTimeRemaining: 0 }
+          }
+
           const { category, difficulty } = selectAICategoryAndDifficulty(
             currentPlayer.aiPersonality,
             currentPlayer.usedCategories || [],
@@ -197,7 +201,7 @@ export function useGameState(initialLobby?: LobbyState) {
   useEffect(() => {
     if (!gameState.isGameActive || gameState.gamePhase !== 'category-selection') return
 
-    const currentTurnPlayer = gameState.players[gameState.currentTurnPlayerIndex]
+    const currentTurnPlayer = gameState.players.find(p => p.id === gameState.currentTurnPlayerId)
     if (!currentTurnPlayer?.isAI) {
       return
     }
@@ -237,7 +241,7 @@ export function useGameState(initialLobby?: LobbyState) {
         }, 800)
       }, 1500)
     }, 1000)
-  }, [gameState.isGameActive, gameState.gamePhase, gameState.currentTurnPlayerIndex])
+  }, [gameState.isGameActive, gameState.gamePhase, gameState.currentTurnPlayerId])
 
   // Load question when both category and difficulty are selected, with a brief delay
   useEffect(() => {
@@ -254,7 +258,7 @@ export function useGameState(initialLobby?: LobbyState) {
       const humanPlayerIds = gameState.players
         .filter(p => !p.isAI && p.id)
         .map(p => p.id)
-      const turnPlayerId = gameState.players[gameState.currentTurnPlayerIndex]?.id
+      const turnPlayerId = gameState.currentTurnPlayerId
       fetchRandomQuestions(
         1,
         gameState.selectedCategory!,
@@ -268,8 +272,9 @@ export function useGameState(initialLobby?: LobbyState) {
           }
           setGameState(prev => {
             // Mark category and difficulty as used for the current turn player
-            let updatedPlayers = markPlayerCategoryUsed(prev.players, prev.currentTurnPlayerIndex, prev.selectedCategory!)
-            updatedPlayers = markPlayerDifficultyUsed(updatedPlayers, prev.currentTurnPlayerIndex, prev.selectedDifficulty!)
+            const turnPlayerIndex = prev.players.findIndex(p => p.id === prev.currentTurnPlayerId)
+            let updatedPlayers = markPlayerCategoryUsed(prev.players, turnPlayerIndex, prev.selectedCategory!)
+            updatedPlayers = markPlayerDifficultyUsed(updatedPlayers, turnPlayerIndex, prev.selectedDifficulty!)
             updatedPlayers = resetPlayerAnswers(updatedPlayers)
             return {
               ...prev,
@@ -307,7 +312,8 @@ export function useGameState(initialLobby?: LobbyState) {
 
     setGameState(prev => {
       // First, AIs decide whether to use boosts
-      let updatedPlayers = processAIBoosts(prev.players, currentQuestion, prev.currentTurnPlayerIndex)
+      const turnPlayerIndex = prev.players.findIndex(p => p.id === prev.currentTurnPlayerId)
+      let updatedPlayers = processAIBoosts(prev.players, currentQuestion, turnPlayerIndex)
       // Then, AIs generate their answers
       updatedPlayers = generateAIAnswers(updatedPlayers, currentQuestion)
 
@@ -345,11 +351,11 @@ export function useGameState(initialLobby?: LobbyState) {
           // Calculate scores using service
           const scoredPlayers = applyScores(
             finalPlayers,
-            prev.currentTurnPlayerIndex,
+            prev.currentTurnPlayerId,
             currentQuestion
           )
 
-          const turnPlayerAnswer = finalPlayers[prev.currentTurnPlayerIndex].selectedAnswer!
+          const turnPlayerAnswer = finalPlayers.find(p => p.id === prev.currentTurnPlayerId)?.selectedAnswer!
           const turnPlayerCorrect = isAnswerCorrect(turnPlayerAnswer, currentQuestion)
 
 
@@ -387,7 +393,7 @@ export function useGameState(initialLobby?: LobbyState) {
         // Calculate scores using service
         const scoredPlayers = applyScores(
           updatedPlayers,
-          prev.currentTurnPlayerIndex,
+          prev.currentTurnPlayerId,
           currentQuestion
         )
 
@@ -422,7 +428,9 @@ export function useGameState(initialLobby?: LobbyState) {
         }
       }
 
-      const nextTurnPlayerIndex = getNextTurnPlayerIndex(prev.currentTurnPlayerIndex, prev.players.length)
+      const currentIndex = prev.players.findIndex(p => p.id === prev.currentTurnPlayerId)
+      const nextTurnPlayerIndex = getNextTurnPlayerIndex(currentIndex === -1 ? 0 : currentIndex, prev.players.length)
+      const nextTurnPlayerId = prev.players[nextTurnPlayerIndex]?.id || ''
       const questionTimeLimit = initialLobby?.gameOptions.questionTimeLimit || QUESTION_TIME_LIMIT
       const selectionTimeLimit = initialLobby?.gameOptions.selectionTimeLimit || SELECTION_TIME_LIMIT
 
@@ -443,7 +451,7 @@ export function useGameState(initialLobby?: LobbyState) {
       return {
         ...prev,
         currentQuestionIndex: prev.currentQuestionIndex + 1,
-        currentTurnPlayerIndex: nextTurnPlayerIndex,
+        currentTurnPlayerId: nextTurnPlayerId,
         gamePhase: 'category-selection' as GamePhase,
         timeRemaining: questionTimeLimit,
         selectionTimeRemaining: selectionTimeLimit,
@@ -483,15 +491,15 @@ export function useGameState(initialLobby?: LobbyState) {
   }, [])
 
   const getCurrentTurnPlayer = useCallback(() => {
-    return gameState.players[gameState.currentTurnPlayerIndex]
-  }, [gameState.players, gameState.currentTurnPlayerIndex])
+    return gameState.players.find(p => p.id === gameState.currentTurnPlayerId)
+  }, [gameState.players, gameState.currentTurnPlayerId])
 
   const useIKnow = useCallback((playerId: string) => {
     setGameState(prev => {
       const player = prev.players.find(p => p.id === playerId)
 
       // Validation checks
-      if (!player || player.id === prev.players[prev.currentTurnPlayerIndex].id) {
+      if (!player || player.id === prev.currentTurnPlayerId) {
         return prev // Can't use if you're the turn player
       }
       if ((player.iKnowPowerupsRemaining || 0) <= 0) {
