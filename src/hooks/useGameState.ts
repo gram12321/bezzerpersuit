@@ -259,6 +259,7 @@ export function useGameState(initialLobby?: LobbyState) {
         .filter(p => !p.isAI && p.id)
         .map(p => p.id)
       const turnPlayerId = gameState.currentTurnPlayerId
+      console.log('[useGameState] loading question', { selectedCategory: gameState.selectedCategory, selectedDifficulty: gameState.selectedDifficulty, humanPlayerIds, turnPlayerId })
       fetchRandomQuestions(
         1,
         gameState.selectedCategory!,

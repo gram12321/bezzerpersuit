@@ -11,16 +11,34 @@ export async function fetchRandomQuestions(
   turnPlayerUserId?: string
 ): Promise<Question[]> {
   try {
-    // ...existing code...
-    
+    // Debug: log inputs
+    console.log('[fetchRandomQuestions] start', {
+      count,
+      category,
+      targetDifficulty,
+      userIdsCount: userIds?.length || 0,
+      turnPlayerUserId
+    })
+
     // Get all potential questions in category (or all questions if no category)
     const allQuestions = category 
       ? await getQuestionsWithFilters({ category })
       : await getAllQuestions()
 
-    // ...existing code...
+    console.log('[fetchRandomQuestions] allQuestions fetched', {
+      total: allQuestions.length,
+      sampleIds: allQuestions.slice(0, 8).map(q => q.id)
+    })
+
+    // Log full candidate list (id + difficulty) for inspection
+    try {
+      console.log('[fetchRandomQuestions] allQuestions details', allQuestions.map(q => ({ id: q.id, difficulty: q.difficulty })))
+    } catch (e) {
+      /* ignore logging errors */
+    }
 
     if (allQuestions.length === 0) {
+      console.error('[fetchRandomQuestions] No questions available in the database for category', category)
       throw new Error('No questions available in the database.')
     }
 
@@ -28,14 +46,21 @@ export async function fetchRandomQuestions(
 
     // If no users provided, use simple filtering without spoilers
     if (!userIds || userIds.length === 0) {
-      // ...existing code...
+      // simple no-user spoiler path
       const filtered = allQuestions.filter(q => 
         Math.abs(q.difficulty - difficulty) <= 0.5
       )
       const candidates = filtered.length > 0 ? filtered : allQuestions
       const shuffled = [...candidates].sort(() => Math.random() - 0.5)
       const result = shuffled.slice(0, Math.min(count, candidates.length))
-      // ...existing code...
+
+      console.log('[fetchRandomQuestions] no userIds branch', {
+        difficulty,
+        filteredCount: filtered.length,
+        candidatesCount: candidates.length,
+        returnedCount: result.length
+      })
+
       return result
     }
 
@@ -51,6 +76,12 @@ export async function fetchRandomQuestions(
         }
       })
     )
+
+    console.log('[fetchRandomQuestions] userSpoilers fetched', {
+      questionIdsCount: questionIds.length,
+      users: userIds,
+      userSpoilersSample: userSpoilers.slice(0, 3)
+    })
 
     // Calculate combined spoiler value for each question
     type QuestionWithSpoiler = Question & { combinedSpoiler: number }
@@ -72,7 +103,30 @@ export async function fetchRandomQuestions(
       return { ...q, combinedSpoiler }
     })
 
-    // ...existing code...
+    // Log spoiler distribution
+    if (questionsWithSpoilers.length > 0) {
+      const spoilers = questionsWithSpoilers.map(q => q.combinedSpoiler)
+      const min = Math.min(...spoilers)
+      const max = Math.max(...spoilers)
+      const avg = spoilers.reduce((s, v) => s + v, 0) / spoilers.length
+      console.log('[fetchRandomQuestions] spoiler stats', { min, max, avg })
+    }
+
+    // Debug: counts of questions within difficulty ranges and how many have zero spoiler
+    const ranges = [0.05, 0.1, 0.15, 0.2]
+    const rangeStats = ranges.map(r => {
+      const inRange = questionsWithSpoilers.filter(q => Math.abs(q.difficulty - difficulty) <= r)
+      const zeroSpoiler = inRange.filter(q => q.combinedSpoiler === 0).length
+      return { range: r, total: inRange.length, zeroSpoiler }
+    })
+    console.log('[fetchRandomQuestions] difficulty range stats', { target: difficulty, rangeStats })
+
+    // Also log exact entries within narrow ranges for verification
+    const narrow = questionsWithSpoilers.filter(q => Math.abs(q.difficulty - difficulty) <= 0.05)
+    console.log('[fetchRandomQuestions] entries within ±0.05', narrow.map(q => ({ id: q.id, difficulty: q.difficulty, combinedSpoiler: q.combinedSpoiler })))
+
+    const slightlyWider = questionsWithSpoilers.filter(q => Math.abs(q.difficulty - difficulty) <= 0.1)
+    console.log('[fetchRandomQuestions] entries within ±0.1', slightlyWider.map(q => ({ id: q.id, difficulty: q.difficulty, combinedSpoiler: q.combinedSpoiler })))
 
     // Define priority tiers: [difficultyTolerance, maxSpoiler]
     // Note: selectedDifficulty is the midpoint, we query with ±0.05 range (matching the 0.1 difficulty brackets)
@@ -116,20 +170,29 @@ export async function fetchRandomQuestions(
         return diffMatch && spoilerMatch
       })
 
+      console.log('[fetchRandomQuestions] tier check', {
+        tierIndex: i,
+        diffTolerance,
+        maxSpoiler,
+        candidates: candidates.length
+      })
+
       if (candidates.length > 0) {
         // Random selection within tier
         const shuffled = [...candidates].sort(() => Math.random() - 0.5)
         const result = shuffled.slice(0, Math.min(count, candidates.length))
+        console.log('[fetchRandomQuestions] selected from tier', { tierIndex: i, returned: result.length })
         return result
       }
     }
 
     // If we reached here with category filter, we found questions in category but none matched tiers
     // This means all questions have been seen too much - just return them anyway (ignore spoilers)
-    // ...existing code...
+    console.warn('[fetchRandomQuestions] no candidates matched any tier — falling back to ignoring spoilers')
+    console.log('[fetchRandomQuestions] questionsWithSpoilers sample', questionsWithSpoilers.slice(0, 10).map(q => ({ id: q.id, difficulty: q.difficulty, combinedSpoiler: q.combinedSpoiler })))
     const shuffled = [...questionsWithSpoilers].sort(() => Math.random() - 0.5)
     const result = shuffled.slice(0, Math.min(count, questionsWithSpoilers.length))
-    // ...existing code...
+    console.log('[fetchRandomQuestions] fallback returned', { returned: result.length })
     return result
 
   } catch (error) {
