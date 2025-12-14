@@ -541,6 +541,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                           "text-sm font-semibold truncate",
                           player.id === gameState.currentPlayerId ? "text-purple-200" : "text-white"
                         )}>
+                        <span className="text-lg mr-2">{getAvatarEmoji(player.avatar || (player.isAI ? 'robot' : 'default'))}</span>
                         {player.name}
                         {player.isAI && ` ${PLAYER_STATE_EMOJIS.ai}`}
                       </div>
@@ -784,29 +785,30 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                   <div className="space-y-2">
                     {gameState.players.map((player, index) => {
                       const isCorrect = player.selectedAnswer === currentQuestion.correctAnswerIndex
-                      const isTurnPlayer = index === gameState.currentTurnPlayerIndex
-                      const turnPlayerCorrect = gameState.players[gameState.currentTurnPlayerIndex].selectedAnswer === currentQuestion.correctAnswerIndex
+                      const isTurnPlayer = player.id === gameState.currentTurnPlayerId
+                      const turnPlayer = gameState.players.find(p => p.id === gameState.currentTurnPlayerId)
+                      const turnPlayerCorrect = turnPlayer ? turnPlayer.selectedAnswer === currentQuestion.correctAnswerIndex : false
                       const basePoints = parseFloat((1 + currentQuestion.difficulty).toFixed(2))
                       const difficultyBonus = parseFloat(currentQuestion.difficulty.toFixed(2))
-                      
+
                       // Calculate points using business logic service
                       const pointsEarned = calculatePlayerPointsForDisplay(
                         player,
                         index,
                         gameState.players,
-                        gameState.currentTurnPlayerIndex,
+                        gameState.currentTurnPlayerId,
                         currentQuestion
                       )
-                      
+
                       // Count how many others got it right for explanation
                       const othersCorrect = isTurnPlayer
-                        ? gameState.players.filter((p, i) => i !== index && p.selectedAnswer === currentQuestion.correctAnswerIndex).length
-                        : gameState.players.filter((p, i) => i !== gameState.currentTurnPlayerIndex && i !== index && p.selectedAnswer === currentQuestion.correctAnswerIndex).length
-                      
+                        ? gameState.players.filter((p) => p.id !== player.id && p.selectedAnswer === currentQuestion.correctAnswerIndex).length
+                        : gameState.players.filter((p) => p.id !== gameState.currentTurnPlayerId && p.id !== player.id && p.selectedAnswer === currentQuestion.correctAnswerIndex).length
+
                       // Generate explanation with icons
                       const usedIKnow = player.usedIKnowThisRound
                       let explanation = ''
-                      
+
                       if (!isCorrect) {
                         if (usedIKnow && !isTurnPlayer) {
                           if (turnPlayerCorrect) {

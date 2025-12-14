@@ -53,7 +53,7 @@ export function calculatePointMultiplier(
  * @param player - The player to calculate points for
  * @param playerIndex - Index of the player in the players array
  * @param players - All players
- * @param turnPlayerIndex - Index of the turn player
+ * @param turnIndex - Index of the turn player (internal)
  * @param question - The current question
  * @returns Points earned (can be negative if used I KNOW and got it wrong)
  */
@@ -61,13 +61,13 @@ function calculatePlayerPoints(
   player: Player,
   playerIndex: number,
   players: Player[],
-  turnPlayerIndex: number,
+  turnIndex: number,
   question: Question
 ): number {
   const isCorrect = player.selectedAnswer === question.correctAnswerIndex
-  const isTurnPlayer = playerIndex === turnPlayerIndex
+  const isTurnPlayer = playerIndex === turnIndex
   const basePoints = calculateQuestionPoints(question.difficulty)
-  const turnPlayerCorrect = players[turnPlayerIndex].selectedAnswer === question.correctAnswerIndex
+  const turnPlayerCorrect = players[turnIndex].selectedAnswer === question.correctAnswerIndex
   const usedIKnow = player.usedIKnowThisRound || false
 
   if (isTurnPlayer) {
@@ -87,7 +87,7 @@ function calculatePlayerPoints(
         // Player wrong with I KNOW - LOSE double points
         // Penalty applies REGARDLESS of whether turn player was correct
         const otherPlayersCorrectCount = players.filter(
-          (p, i) => i !== turnPlayerIndex && i !== playerIndex && p.selectedAnswer === question.correctAnswerIndex
+          (p, i) => i !== turnIndex && i !== playerIndex && p.selectedAnswer === question.correctAnswerIndex
         ).length
         const otherPlayersCount = players.length - 2
         const multiplier = calculatePointMultiplier(otherPlayersCount, otherPlayersCorrectCount)
@@ -98,7 +98,7 @@ function calculatePlayerPoints(
       } else {
         // Turn player wrong, player correct with I KNOW - DOUBLE points
         const otherPlayersCorrectCount = players.filter(
-          (p, i) => i !== turnPlayerIndex && i !== playerIndex && p.selectedAnswer === question.correctAnswerIndex
+          (p, i) => i !== turnIndex && i !== playerIndex && p.selectedAnswer === question.correctAnswerIndex
         ).length
         const otherPlayersCount = players.length - 2
         const multiplier = calculatePointMultiplier(otherPlayersCount, otherPlayersCorrectCount)
@@ -109,7 +109,7 @@ function calculatePlayerPoints(
       if (!isCorrect || turnPlayerCorrect) return 0
 
       const otherPlayersCorrectCount = players.filter(
-        (p, i) => i !== turnPlayerIndex && i !== playerIndex && p.selectedAnswer === question.correctAnswerIndex
+        (p, i) => i !== turnIndex && i !== playerIndex && p.selectedAnswer === question.correctAnswerIndex
       ).length
       const otherPlayersCount = players.length - 2
       const multiplier = calculatePointMultiplier(otherPlayersCount, otherPlayersCorrectCount)
@@ -128,17 +128,26 @@ function calculatePlayerPoints(
  * - Points are reduced based on how many other players also answered correctly
  * 
  * @param players - All players with their answers
- * @param currentTurnPlayerIndex - Index of the player whose turn it is
+ * @param currentTurnPlayerId - ID of the player whose turn it is
  * @param question - The current question
  * @returns Updated players array with new scores added
  */
+
 export function applyScores(
   players: Player[],
-  currentTurnPlayerIndex: number,
+  currentTurnPlayerId: string,
   question: Question
 ): Player[] {
+  const turnIndex = players.findIndex(p => p.id === currentTurnPlayerId)
+
+  // Ensure turn player exists
+  if (turnIndex === -1) {
+    console.error('Turn player not found in players array:', currentTurnPlayerId, players.map(p => p.id))
+    throw new Error(`Turn player with ID ${currentTurnPlayerId} not found in players array`)
+  }
+
   return players.map((player, index) => {
-    const earnedPoints = calculatePlayerPoints(player, index, players, currentTurnPlayerIndex, question)
+    const earnedPoints = calculatePlayerPoints(player, index, players, turnIndex, question)
 
     if (earnedPoints === 0) return player
 
@@ -170,7 +179,7 @@ export function getHumanPlayers(players: Player[]): Player[] {
  * @param player - The player to calculate points for
  * @param playerIndex - Index of the player in the players array
  * @param players - All players
- * @param turnPlayerIndex - Index of the turn player
+ * @param currentTurnPlayerId - ID of the turn player
  * @param question - The current question
  * @returns Points earned (0 if incorrect or didn't earn points)
  */
@@ -178,8 +187,10 @@ export function calculatePlayerPointsForDisplay(
   player: Player,
   playerIndex: number,
   players: Player[],
-  turnPlayerIndex: number,
+  currentTurnPlayerId: string,
   question: Question
 ): number {
-  return calculatePlayerPoints(player, playerIndex, players, turnPlayerIndex, question)
+  const turnIndex = players.findIndex(p => p.id === currentTurnPlayerId)
+  if (turnIndex === -1) return 0
+  return calculatePlayerPoints(player, playerIndex, players, turnIndex, question)
 }

@@ -130,18 +130,17 @@ export function selectAICategoryAndDifficulty(
  * 
  * @param player - AI player
  * @param question - Current question
- * @param turnPlayerIndex - Index of the turn player
+ * @param currentTurnPlayerId - ID of the turn player
  * @param playerIndex - Index of this AI player
  * @returns true if AI should use boost
  */
 export function shouldAIUseBoost(
   player: Player,
   question: Question,
-  turnPlayerIndex: number,
-  playerIndex: number
+  currentTurnPlayerId: string
 ): boolean {
   // Can't use if you're the turn player
-  if (playerIndex === turnPlayerIndex) {
+  if (player.id === currentTurnPlayerId) {
     return false
   }
   
@@ -188,16 +187,16 @@ export function shouldAIUseBoost(
  * 
  * @param players - All players in the game
  * @param question - Current question
- * @param turnPlayerIndex - Index of the turn player
+ * @param currentTurnPlayerId - ID of the turn player
  * @returns Updated players array with boost decisions applied
  */
 export function processAIBoosts(
   players: Player[],
   question: Question,
-  turnPlayerIndex: number
+  currentTurnPlayerId: string
 ): Player[] {
-  return players.map((player, index) => {
-    if (player.isAI && shouldAIUseBoost(player, question, turnPlayerIndex, index)) {
+  return players.map(player => {
+    if (player.isAI && shouldAIUseBoost(player, question, currentTurnPlayerId)) {
       return {
         ...player,
         usedIKnowThisRound: true,

@@ -48,12 +48,16 @@ export function haveAllPlayersAnswered(players: Player[]): boolean {
   return players.every(p => p.hasAnswered)
 }
 
-
 /**
- * Get the next turn player index
+ * Get the next turn player's ID given the current turn player's ID and players list
+ * This centralizes index lookup and prevents callers from computing indices themselves.
  */
-export function getNextTurnPlayerIndex(currentIndex: number, totalPlayers: number): number {
-  return (currentIndex + 1) % totalPlayers
+export function getNextTurnPlayerId(currentTurnPlayerId: string, players: Player[]): string {
+  if (!players || players.length === 0) return ''
+  const currentIndex = players.findIndex(p => p.id === currentTurnPlayerId)
+  const startIndex = currentIndex === -1 ? 0 : currentIndex
+  const nextIndex = (startIndex + 1) % players.length
+  return players[nextIndex]?.id || ''
 }
 
 /**
@@ -141,11 +145,11 @@ export function isDifficultyUsed(
  */
 export function markPlayerCategoryUsed(
   players: Player[],
-  playerIndex: number,
+  playerId: string,
   category: QuestionCategory
 ): Player[] {
-  return players.map((p, idx) => {
-    if (idx === playerIndex) {
+  return players.map(p => {
+    if (p.id === playerId) {
       const usedCategories = p.usedCategories || []
       if (isCategoryUsed(category, usedCategories)) {
         return p
@@ -161,11 +165,11 @@ export function markPlayerCategoryUsed(
  */
 export function markPlayerDifficultyUsed(
   players: Player[],
-  playerIndex: number,
+  playerId: string,
   difficulty: DifficultyScore
 ): Player[] {
-  return players.map((p, idx) => {
-    if (idx === playerIndex) {
+  return players.map(p => {
+    if (p.id === playerId) {
       const usedDifficulties = p.usedDifficulties || []
       if (isDifficultyUsed(difficulty, usedDifficulties)) {
         return p
@@ -217,10 +221,10 @@ export function areAllDifficultiesUsed(usedDifficulties: DifficultyScore[]): boo
  */
 export function resetPlayerCategories(
   players: Player[],
-  playerIndex: number
+  playerId: string
 ): Player[] {
-  return players.map((p, idx) => {
-    if (idx === playerIndex) {
+  return players.map(p => {
+    if (p.id === playerId) {
       return { ...p, usedCategories: [] }
     }
     return p
@@ -232,10 +236,10 @@ export function resetPlayerCategories(
  */
 export function resetPlayerDifficulties(
   players: Player[],
-  playerIndex: number
+  playerId: string
 ): Player[] {
-  return players.map((p, idx) => {
-    if (idx === playerIndex) {
+  return players.map(p => {
+    if (p.id === playerId) {
       return { ...p, usedDifficulties: [] }
     }
     return p
