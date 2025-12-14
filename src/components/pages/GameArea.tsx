@@ -1,6 +1,6 @@
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
 import { useGameState } from "@/hooks"
-import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS, createDifficultyScore, QUESTIONS_PER_GAME, getCategoryColorClasses, getCategoryEmoji, getDifficultyEmoji, PLAYER_STATE_EMOJIS, STATUS_EMOJIS, getCategoriesByTheme, getShortenedCategoryName, getAvatarEmoji } from "@/lib/utils"
+import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS, createDifficultyScore, QUESTIONS_PER_GAME, getCategoryColorClasses, getCategoryEmoji, getDifficultyEmoji, PLAYER_STATE_EMOJIS, STATUS_EMOJIS, getCategoriesByTheme, getShortenedCategoryName, getQuestionClassBackgroundUrl, getAvatarEmoji } from "@/lib/utils"
 import type { LobbyState, QuestionCategory } from '@/lib/utils'
 import { isCategoryUsed, isDifficultyUsed } from "@/lib/services/gameService"
 import { calculatePlayerPointsForDisplay } from '@/lib/services'
@@ -590,7 +590,9 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
         {/* Question Card */}
         <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
           <CardHeader>
-            <div className="flex justify-between items-start">
+            <div className="w-full h-40 md:h-56 bg-center bg-cover relative" style={{ backgroundImage: "url('" + getQuestionClassBackgroundUrl(currentQuestion.questionClass?.[0] || '') + "')" }}>
+              <div className="absolute inset-0 bg-gradient-to-b from-transparent to-slate-900/80" />
+              <div className="flex justify-between items-start">
               <div className="space-y-2 flex-1">
                 <div className="flex gap-2 items-center flex-wrap">
                   {currentQuestion.categories.map((cat) => (
@@ -645,6 +647,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                 Exit
               </Button>
             </div>
+          </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* I KNOW Button for non-turn players */}

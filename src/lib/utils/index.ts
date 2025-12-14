@@ -46,6 +46,7 @@ export {
   getDifficultyEmoji,
   getShortenedCategoryName
 } from './UIUtils'
+export { getQuestionClassBackgroundUrl } from './UIUtils'
 
 // Re-export avatar utilities
 export {

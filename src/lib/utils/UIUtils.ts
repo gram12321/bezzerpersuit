@@ -251,3 +251,41 @@ const CATEGORY_SHORT_NAMES: Record<string, string> = {
 export function getShortenedCategoryName(category: string): string {
   return CATEGORY_SHORT_NAMES[category] || category
 }
+
+/**
+ * Collection background images mapping.
+ * Returns a URL for a collection name or a sensible default image.
+ */
+const QUESTION_CLASS_BACKGROUNDS: Record<string, string> = {
+  'Global': 'https://images.unsplash.com/photo-1506976785307-8732e854ad5b?auto=format&fit=crop&w=1400&q=80',
+  'Western': 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=1400&q=80',
+  'Far East': 'https://images.unsplash.com/photo-1504198453319-5ce911bafcde?auto=format&fit=crop&w=1400&q=80',
+  'Eastern': 'https://images.unsplash.com/photo-1482192596544-9eb780fc7f66?auto=format&fit=crop&w=1400&q=80',
+  'Latin': 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1400&q=80',
+  'Africa': 'https://images.unsplash.com/photo-1507925921958-8a62f3b5b7d8?auto=format&fit=crop&w=1400&q=80',
+  'Middle East': 'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1400&q=80',
+  'United States': 'https://images.unsplash.com/photo-1496307042754-b4aa456c4a2d?auto=format&fit=crop&w=1400&q=80',
+  'United Kingdom': 'https://images.unsplash.com/photo-1508921912186-1d1a45ebb3c1?auto=format&fit=crop&w=1400&q=80',
+  'Denmark': 'https://images.unsplash.com/photo-1467269204594-9661b134dd2b?auto=format&fit=crop&w=1400&q=80',
+  'Germany': 'https://images.unsplash.com/photo-1505765054072-7a0a8f2d4b15?auto=format&fit=crop&w=1400&q=80'
+}
+
+export function getQuestionClassBackgroundUrl(questionClass?: string | string[]): string {
+  let qc: string | undefined
+  if (!questionClass) return QUESTION_CLASS_BACKGROUNDS['Global']
+  if (Array.isArray(questionClass)) qc = questionClass[0]
+  else qc = questionClass
+
+  if (!qc) return QUESTION_CLASS_BACKGROUNDS['Global']
+
+  // Exact match
+  if (QUESTION_CLASS_BACKGROUNDS[qc]) return QUESTION_CLASS_BACKGROUNDS[qc]
+
+  const lower = qc.toLowerCase()
+  for (const key of Object.keys(QUESTION_CLASS_BACKGROUNDS)) {
+    if (key.toLowerCase() === lower) return QUESTION_CLASS_BACKGROUNDS[key]
+    if (key.toLowerCase().includes(lower) || lower.includes(key.toLowerCase())) return QUESTION_CLASS_BACKGROUNDS[key]
+  }
+
+  return QUESTION_CLASS_BACKGROUNDS['Global']
+}
