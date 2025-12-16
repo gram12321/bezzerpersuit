@@ -11,6 +11,15 @@ export async function fetchRandomQuestions(
   turnPlayerUserId?: string
 ): Promise<Question[]> {
   try {
+    const TIMEOUT_MS = 8000;
+    let didTimeout = false;
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        didTimeout = true;
+        console.error('[fetchRandomQuestions] TIMEOUT after', TIMEOUT_MS, 'ms');
+        reject(new Error('Timed out fetching questions from database.'));
+      }, TIMEOUT_MS);
+    });
     // Debug: log inputs
     console.log('[fetchRandomQuestions] start', {
       count,
@@ -21,61 +30,86 @@ export async function fetchRandomQuestions(
     })
 
     // Get all potential questions in category (or all questions if no category)
-    const allQuestions = category 
-      ? await getQuestionsWithFilters({ category })
-      : await getAllQuestions()
+
+    let allQuestions;
+    const dbPromise = (async () => {
+      console.log('[fetchRandomQuestions] calling DB for questions', { category });
+      if (category) {
+        allQuestions = await getQuestionsWithFilters({ category });
+      } else {
+        allQuestions = await getAllQuestions();
+      }
+      console.log('[fetchRandomQuestions] DB call complete', { count: allQuestions?.length });
+      return allQuestions;
+    })();
+
+    // Race DB call vs timeout
+    allQuestions = await Promise.race([dbPromise, timeoutPromise]);
+    if (didTimeout) {
+      throw new Error('Timed out fetching questions from database.');
+    }
+
 
     console.log('[fetchRandomQuestions] allQuestions fetched', {
       total: allQuestions.length,
       sampleIds: allQuestions.slice(0, 8).map(q => q.id)
-    })
+    });
 
-    // Log full candidate list (id + difficulty) for inspection
+    // Log full candidate list (id + difficulty) for inspection, sorted by difficulty ascending
     try {
-      console.log('[fetchRandomQuestions] allQuestions details', allQuestions.map(q => ({ id: q.id, difficulty: q.difficulty })))
+      const sortedDetails = allQuestions
+        .map(q => ({ id: q.id, difficulty: q.difficulty }))
+        .sort((a, b) => a.difficulty - b.difficulty)
+      console.log('[fetchRandomQuestions] allQuestions details', sortedDetails)
     } catch (e) {
       /* ignore logging errors */
     }
 
+
     if (allQuestions.length === 0) {
-      console.error('[fetchRandomQuestions] No questions available in the database for category', category)
-      throw new Error('No questions available in the database.')
+      console.error('[fetchRandomQuestions] No questions available in the database for category', category);
+      throw new Error('No questions available in the database.');
     }
 
     const difficulty = targetDifficulty ?? 0.5
+
 
     // If no users provided, use simple filtering without spoilers
     if (!userIds || userIds.length === 0) {
       // simple no-user spoiler path
       const filtered = allQuestions.filter(q => 
         Math.abs(q.difficulty - difficulty) <= 0.5
-      )
-      const candidates = filtered.length > 0 ? filtered : allQuestions
-      const shuffled = [...candidates].sort(() => Math.random() - 0.5)
-      const result = shuffled.slice(0, Math.min(count, candidates.length))
+      );
+      const candidates = filtered.length > 0 ? filtered : allQuestions;
+      const shuffled = [...candidates].sort(() => Math.random() - 0.5);
+      const result = shuffled.slice(0, Math.min(count, candidates.length));
 
       console.log('[fetchRandomQuestions] no userIds branch', {
         difficulty,
         filteredCount: filtered.length,
         candidatesCount: candidates.length,
         returnedCount: result.length
-      })
+      });
 
-      return result
+      console.log('[fetchRandomQuestions] returning from no-userIds branch');
+      return result;
     }
 
     // Fetch spoiler values for all users
+    console.log('[fetchRandomQuestions] fetching spoilers for userIds', userIds);
     const questionIds = allQuestions.map(q => q.id)
     const userSpoilers = await Promise.all(
       userIds.map(async userId => {
         try {
-          return await getQuestionSpoilers(userId, questionIds)
+          const result = await getQuestionSpoilers(userId, questionIds);
+          console.log(`[fetchRandomQuestions] got spoilers for user ${userId}`, result);
+          return result;
         } catch (error) {
-          console.error(`Failed to get spoilers for user ${userId}:`, error)
-          return {} // Return empty object on error
+          console.error(`Failed to get spoilers for user ${userId}:`, error);
+          return {}; // Return empty object on error
         }
       })
-    )
+    );
 
     console.log('[fetchRandomQuestions] userSpoilers fetched', {
       questionIdsCount: questionIds.length,
@@ -159,41 +193,60 @@ export async function fetchRandomQuestions(
 
     // Try each tier
     for (let i = 0; i < tiers.length; i++) {
-      const [diffTolerance, maxSpoiler] = tiers[i]
-      const candidates = questionsWithSpoilers.filter(q => {
-        // Check difficulty
-        const diffMatch = Math.abs(q.difficulty - difficulty) <= diffTolerance
-        
-        // Check spoiler
-        const spoilerMatch = maxSpoiler === null || q.combinedSpoiler <= maxSpoiler
-        
-        return diffMatch && spoilerMatch
-      })
+      const [diffTolerance, maxSpoiler] = tiers[i];
+
+      // Build per-question acceptance map for this tier, include diff and sort by diff
+      const perQuestion = questionsWithSpoilers.map(q => {
+        const diff = Math.abs(q.difficulty - difficulty);
+        const diffMatch = diff <= diffTolerance;
+        const spoilerMatch = maxSpoiler === null || q.combinedSpoiler <= maxSpoiler;
+        return {
+          id: q.id,
+          diff,
+          combinedSpoiler: q.combinedSpoiler,
+          accepted: diffMatch && spoilerMatch
+        };
+      }).sort((a, b) => a.diff - b.diff);
+
+      const candidates = perQuestion.filter(p => p.accepted);
 
       console.log('[fetchRandomQuestions] tier check', {
         tierIndex: i,
         diffTolerance,
         maxSpoiler,
         candidates: candidates.length
-      })
+      });
+
+      // Log the requirement for this tier
+      try {
+        const reqMsg = `[fetchRandomQuestions] tier requirement: tierIndex ${i}, diff ≤ ${diffTolerance}, spoiler ${maxSpoiler === null ? 'any' : '≤ ' + maxSpoiler}`;
+        console.log(reqMsg);
+        console.log('[fetchRandomQuestions] tier questions', { tierIndex: i, questions: perQuestion });
+      } catch (e) {
+        /* ignore logging issues */
+      }
 
       if (candidates.length > 0) {
         // Random selection within tier
-        const shuffled = [...candidates].sort(() => Math.random() - 0.5)
-        const result = shuffled.slice(0, Math.min(count, candidates.length))
-        console.log('[fetchRandomQuestions] selected from tier', { tierIndex: i, returned: result.length })
-        return result
+        const shuffled = [...candidates].sort(() => Math.random() - 0.5);
+        const result = shuffled.slice(0, Math.min(count, candidates.length));
+        console.log('[fetchRandomQuestions] selected from tier', { tierIndex: i, returned: result.length });
+        // Map back to full Question objects before returning
+        const resultIds = new Set(result.map(r => r.id));
+        const finalResult = questionsWithSpoilers.filter(q => resultIds.has(q.id)).slice(0, result.length);
+        console.log('[fetchRandomQuestions] returning from tier', { tierIndex: i, finalResult });
+        return finalResult;
       }
     }
 
     // If we reached here with category filter, we found questions in category but none matched tiers
     // This means all questions have been seen too much - just return them anyway (ignore spoilers)
-    console.warn('[fetchRandomQuestions] no candidates matched any tier — falling back to ignoring spoilers')
-    console.log('[fetchRandomQuestions] questionsWithSpoilers sample', questionsWithSpoilers.slice(0, 10).map(q => ({ id: q.id, difficulty: q.difficulty, combinedSpoiler: q.combinedSpoiler })))
-    const shuffled = [...questionsWithSpoilers].sort(() => Math.random() - 0.5)
-    const result = shuffled.slice(0, Math.min(count, questionsWithSpoilers.length))
-    console.log('[fetchRandomQuestions] fallback returned', { returned: result.length })
-    return result
+    console.warn('[fetchRandomQuestions] no candidates matched any tier — falling back to ignoring spoilers');
+    console.log('[fetchRandomQuestions] questionsWithSpoilers sample', questionsWithSpoilers.slice(0, 10).map(q => ({ id: q.id, difficulty: q.difficulty, combinedSpoiler: q.combinedSpoiler })));
+    const shuffled = [...questionsWithSpoilers].sort(() => Math.random() - 0.5);
+    const result = shuffled.slice(0, Math.min(count, questionsWithSpoilers.length));
+    console.log('[fetchRandomQuestions] returning from fallback', { result });
+    return result;
 
   } catch (error) {
     // ...existing code...
