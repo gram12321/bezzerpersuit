@@ -258,8 +258,9 @@ export function useGameState(initialLobby?: LobbyState) {
       const humanPlayerIds = gameState.players
         .filter(p => !p.isAI && p.id)
         .map(p => p.id)
+      const sd = typeof gameState.selectedDifficulty === 'number' ? Number(gameState.selectedDifficulty.toFixed(2)) : gameState.selectedDifficulty
+      console.log('[useGameState] requesting question', { selectedCategory: gameState.selectedCategory, selectedDifficulty: sd })
       const turnPlayerId = gameState.currentTurnPlayerId
-      console.log('[useGameState] loading question', { selectedCategory: gameState.selectedCategory, selectedDifficulty: gameState.selectedDifficulty, humanPlayerIds, turnPlayerId })
       fetchRandomQuestions(
         1,
         gameState.selectedCategory!,

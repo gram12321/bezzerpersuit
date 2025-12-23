@@ -11,38 +11,59 @@ export async function fetchRandomQuestions(
   turnPlayerUserId?: string
 ): Promise<Question[]> {
   try {
-    // Debug: log inputs
-    console.log('[fetchRandomQuestions] start', {
-      count,
-      category,
-      targetDifficulty,
-      userIdsCount: userIds?.length || 0,
-      turnPlayerUserId
-    })
+    // Debug: log inputs (minimal)
+    console.log('[fetchRandomQuestions] start', { count, category, targetDifficulty })
 
     // Get all potential questions in category (or all questions if no category)
-    const allQuestions = category 
-      ? await getQuestionsWithFilters({ category })
-      : await getAllQuestions()
+    let allQuestions: Question[] = []
+    const fetchStart = Date.now()
+    const dbMethod = category ? 'getQuestionsWithFilters' : 'getAllQuestions'
+    console.log('[fetchRandomQuestions] about to call DB method', { dbMethod, category })
 
-    console.log('[fetchRandomQuestions] allQuestions fetched', {
-      total: allQuestions.length,
-      sampleIds: allQuestions.slice(0, 8).map(q => q.id)
-    })
+    // watchdog to signal if the DB call is hanging
+    const watchdogMs = 3000
+    let watchdogFired = false
+    const watchdog = setTimeout(() => {
+      watchdogFired = true
+      console.warn('[fetchRandomQuestions] DB fetch taking unusually long (>3s)', { dbMethod, category })
+    }, watchdogMs)
 
-    // Log full candidate list (id + difficulty) for inspection
     try {
-      console.log('[fetchRandomQuestions] allQuestions details', allQuestions.map(q => ({ id: q.id, difficulty: q.difficulty })))
-    } catch (e) {
-      /* ignore logging errors */
+      allQuestions = category
+        ? await getQuestionsWithFilters({ category })
+        : await getAllQuestions()
+    } catch (err) {
+      clearTimeout(watchdog)
+      console.error('[fetchRandomQuestions] failed to fetch questions', { category, error: err })
+      throw err
     }
+    clearTimeout(watchdog)
+    const fetchElapsed = Date.now() - fetchStart
+    if (watchdogFired) console.info('[fetchRandomQuestions] DB fetch eventually returned', { dbMethod, fetchMs: fetchElapsed })
+    if (!allQuestions || !Array.isArray(allQuestions)) {
+      console.error('[fetchRandomQuestions] fetch returned invalid result', { category, returned: allQuestions })
+      throw new Error('Invalid questions fetched from DB')
+    }
+
+    // Minimal summary: total available questions in category
+    console.log('[fetchRandomQuestions] allQuestions fetched', { total: allQuestions.length, fetchMs: fetchElapsed })
+    if (fetchElapsed > 2000) console.warn('[fetchRandomQuestions] DB fetch slow', { category, fetchMs: fetchElapsed })
+
+    // Compute requested difficulty and immediate availability for quick debugging
+    const difficulty = targetDifficulty ?? 0.5
+    const tier1Tol = 0.05 // Tier1 is ±0.05 around midpoint (0.1 interval)
+    const inTier1 = allQuestions.filter(q => Math.abs(q.difficulty - difficulty) <= tier1Tol)
+    console.log('[fetchRandomQuestions] availability', {
+      totalQuestions: allQuestions.length,
+      requestedDifficulty: Number(difficulty.toFixed(2)),
+      tier1Range: `${Math.max(0, difficulty - tier1Tol).toFixed(2)} - ${Math.min(1, difficulty + tier1Tol).toFixed(2)}`,
+      tier1Count: inTier1.length
+    })
 
     if (allQuestions.length === 0) {
       console.error('[fetchRandomQuestions] No questions available in the database for category', category)
       throw new Error('No questions available in the database.')
     }
-
-    const difficulty = targetDifficulty ?? 0.5
 
     // If no users provided, use simple filtering without spoilers
     if (!userIds || userIds.length === 0) {
@@ -77,11 +98,7 @@ export async function fetchRandomQuestions(
       })
     )
 
-    console.log('[fetchRandomQuestions] userSpoilers fetched', {
-      questionIdsCount: questionIds.length,
-      users: userIds,
-      userSpoilersSample: userSpoilers.slice(0, 3)
-    })
+    // (suppressed) spoilers fetched log removed to reduce verbosity
 
     // Calculate combined spoiler value for each question
     type QuestionWithSpoiler = Question & { combinedSpoiler: number }
@@ -103,30 +120,15 @@ export async function fetchRandomQuestions(
       return { ...q, combinedSpoiler }
     })
 
-    // Log spoiler distribution
-    if (questionsWithSpoilers.length > 0) {
-      const spoilers = questionsWithSpoilers.map(q => q.combinedSpoiler)
-      const min = Math.min(...spoilers)
-      const max = Math.max(...spoilers)
-      const avg = spoilers.reduce((s, v) => s + v, 0) / spoilers.length
-      console.log('[fetchRandomQuestions] spoiler stats', { min, max, avg })
-    }
+    // Compute per-question diagnostics: distance from target and spoiler value
+    const questionsDiagnostics = questionsWithSpoilers.map(q => ({
+      id: q.id,
+      difficulty: q.difficulty,
+      distance: Math.abs(q.difficulty - difficulty),
+      combinedSpoiler: q.combinedSpoiler
+    }))
 
-    // Debug: counts of questions within difficulty ranges and how many have zero spoiler
-    const ranges = [0.05, 0.1, 0.15, 0.2]
-    const rangeStats = ranges.map(r => {
-      const inRange = questionsWithSpoilers.filter(q => Math.abs(q.difficulty - difficulty) <= r)
-      const zeroSpoiler = inRange.filter(q => q.combinedSpoiler === 0).length
-      return { range: r, total: inRange.length, zeroSpoiler }
-    })
-    console.log('[fetchRandomQuestions] difficulty range stats', { target: difficulty, rangeStats })
-
-    // Also log exact entries within narrow ranges for verification
-    const narrow = questionsWithSpoilers.filter(q => Math.abs(q.difficulty - difficulty) <= 0.05)
-    console.log('[fetchRandomQuestions] entries within ±0.05', narrow.map(q => ({ id: q.id, difficulty: q.difficulty, combinedSpoiler: q.combinedSpoiler })))
-
-    const slightlyWider = questionsWithSpoilers.filter(q => Math.abs(q.difficulty - difficulty) <= 0.1)
-    console.log('[fetchRandomQuestions] entries within ±0.1', slightlyWider.map(q => ({ id: q.id, difficulty: q.difficulty, combinedSpoiler: q.combinedSpoiler })))
+    // Define priority tiers: [difficultyTolerance, maxSpoiler]
 
     // Define priority tiers: [difficultyTolerance, maxSpoiler]
     // Note: selectedDifficulty is the midpoint, we query with ±0.05 range (matching the 0.1 difficulty brackets)
@@ -157,28 +159,59 @@ export async function fetchRandomQuestions(
       [1.0, null],   // 23. Any difficulty in category, any spoiler
     ]
 
-    // Try each tier
+    // Prepare diagnostics per tier (includes evaluation accepted: boolean per question)
+    const perTierDiagnostics = tiers.map(([diffTolerance, maxSpoiler], tierIndex) => {
+      const evaluated = questionsDiagnostics.map(q => {
+        const diffMatch = q.distance <= diffTolerance
+        const spoilerMatch = maxSpoiler === null || q.combinedSpoiler <= maxSpoiler
+        return {
+          id: q.id,
+          difficulty: q.difficulty,
+          distance: q.distance,
+          combinedSpoiler: q.combinedSpoiler,
+          accepted: !!(diffMatch && spoilerMatch)
+        }
+      })
+
+      // Sort evaluated by ascending distance for easier inspection
+      evaluated.sort((a, b) => a.distance - b.distance)
+
+      const acceptedCount = evaluated.filter(e => e.accepted).length
+      return {
+        tierIndex,
+        diffTolerance,
+        maxSpoiler,
+        acceptedCount,
+        evaluated
+      }
+    })
+
+    // Log a compact, structured summary desired by caller
+    console.log('[fetchRandomQuestions] summary', {
+      totalQuestions: allQuestions.length,
+      requestedDifficulty: difficulty,
+      tier1: {
+        index: 0,
+        range: `${Math.max(0, difficulty - 0.05).toFixed(2)} - ${Math.min(1, difficulty + 0.05).toFixed(2)}`,
+        acceptedCount: perTierDiagnostics[0]?.acceptedCount ?? 0
+      },
+      perTier: perTierDiagnostics.map(t => ({ tierIndex: t.tierIndex, diffTolerance: t.diffTolerance, maxSpoiler: t.maxSpoiler, acceptedCount: t.acceptedCount }))
+    })
+
+    // Also log per-tier full evaluations: each question's distance, spoiler and accepted boolean
+    // Each tier's `evaluated` array is sorted by distance (closest first)
+    console.log('[fetchRandomQuestions] perTierEvaluations', perTierDiagnostics.map(t => ({ tierIndex: t.tierIndex, acceptedCount: t.acceptedCount, evaluated: t.evaluated })))
+
+    // Now iterate tiers to actually select a candidate (first tier with accepted questions)
     for (let i = 0; i < tiers.length; i++) {
       const [diffTolerance, maxSpoiler] = tiers[i]
       const candidates = questionsWithSpoilers.filter(q => {
-        // Check difficulty
         const diffMatch = Math.abs(q.difficulty - difficulty) <= diffTolerance
-        
-        // Check spoiler
         const spoilerMatch = maxSpoiler === null || q.combinedSpoiler <= maxSpoiler
-        
         return diffMatch && spoilerMatch
       })
 
-      console.log('[fetchRandomQuestions] tier check', {
-        tierIndex: i,
-        diffTolerance,
-        maxSpoiler,
-        candidates: candidates.length
-      })
-
       if (candidates.length > 0) {
-        // Random selection within tier
         const shuffled = [...candidates].sort(() => Math.random() - 0.5)
         const result = shuffled.slice(0, Math.min(count, candidates.length))
         console.log('[fetchRandomQuestions] selected from tier', { tierIndex: i, returned: result.length })
