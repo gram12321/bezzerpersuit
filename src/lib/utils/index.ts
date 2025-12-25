@@ -24,12 +24,14 @@ export type {
   LobbyState,
   User,
   PlayerStats,
-  GameSession
+  GameSession,
+  QuestionCollection
 } from './types'
 
 export {
   QUIZ_CATEGORIES,
   QUESTION_CLASSES,
+  QUESTION_COLLECTIONS,
   createDifficultyScore
 } from './types'
 
@@ -44,7 +46,8 @@ export {
   getCategoriesByTheme,
   DIFFICULTY_EMOJIS,
   getDifficultyEmoji,
-  getShortenedCategoryName
+  getShortenedCategoryName,
+  getCollectionImageUrl
 } from './UIUtils'
 export { getQuestionClassBackgroundUrl } from './UIUtils'
 

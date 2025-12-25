@@ -49,6 +49,31 @@ export const QUESTION_CLASSES = [
 export type QuestionClass = typeof QUESTION_CLASSES[number]
 
 /**
+ * All available question collections (Packs)
+ */
+export const QUESTION_COLLECTIONS = [
+  'BaseEastern',
+  'BaseFarEast',
+  'BaseGlobal',
+  'BaseLatin',
+  'BaseMiddleEast',
+  'BaseWestern',
+  'Basegame',
+  'China',
+  'Denmark National',
+  'Europe',
+  'European Union',
+  'Germany National',
+  'Renaissance',
+  'Silk Road',
+  'The Impossible',
+  'UK National',
+  '__NONE__'
+] as const
+
+export type QuestionCollection = typeof QUESTION_COLLECTIONS[number]
+
+/**
  * Game phase for turn-based gameplay
  */
 export type GamePhase = 'category-selection' | 'answering' | 'results'
@@ -69,7 +94,7 @@ export interface Question {
   correctAnswerIndex: number
   categories: QuestionCategory[]  // Questions can belong to multiple categories
   questionClass: QuestionClass[]  // Geographic/cultural classification (e.g., ['Global'], ['Western', 'Far East'])
-  questionCollection: string[]  // Question collection(s) this belongs to (e.g., ['Basegame'], ['WW2', 'History Pack'])
+  questionCollection: QuestionCollection[]  // Question collection(s) this belongs to
   difficulty: DifficultyScore
   correctCount?: number
   incorrectCount?: number
@@ -117,6 +142,7 @@ export interface GameOptions {
   questionTimeLimit: number
   selectionTimeLimit: number
   iKnowPowerupsPerPlayer: number
+  enabledCollections: QuestionCollection[]  // Which question collections to include (empty = all)
 }
 
 /**

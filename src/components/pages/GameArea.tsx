@@ -1,9 +1,11 @@
+import { useState, useEffect } from 'react'
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
 import { useGameState } from "@/hooks"
-import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS, createDifficultyScore, QUESTIONS_PER_GAME, getCategoryColorClasses, getCategoryEmoji, getDifficultyEmoji, PLAYER_STATE_EMOJIS, STATUS_EMOJIS, getCategoriesByTheme, getShortenedCategoryName, getQuestionClassBackgroundUrl, getAvatarEmoji } from "@/lib/utils"
+import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS, createDifficultyScore, QUESTIONS_PER_GAME, getCategoryColorClasses, getCategoryEmoji, getDifficultyEmoji, getCollectionImageUrl, PLAYER_STATE_EMOJIS, STATUS_EMOJIS, getCategoriesByTheme, getShortenedCategoryName, getQuestionClassBackgroundUrl, getAvatarEmoji } from "@/lib/utils"
 import type { LobbyState, QuestionCategory } from '@/lib/utils'
 import { isCategoryUsed, isDifficultyUsed } from "@/lib/services/gameService"
 import { calculatePlayerPointsForDisplay } from '@/lib/services'
+import { getQuestionSummaries, type QuestionSummary } from "@/database/questionsDB"
 
 
 interface GameAreaProps {
@@ -13,6 +15,43 @@ interface GameAreaProps {
 
 export function GameArea({ lobby, onExit }: GameAreaProps) {
   const { gameState, startGame, submitAnswer, nextQuestion, endGame, selectCategory, selectDifficulty, getCurrentTurnPlayer, useIKnow } = useGameState(lobby)
+  const [summaries, setSummaries] = useState<QuestionSummary[]>([])
+
+  useEffect(() => {
+    getQuestionSummaries(lobby.gameOptions.enabledCollections)
+      .then(setSummaries)
+      .catch(err => console.error('[GameArea] Failed to load question summaries', err))
+  }, [lobby.gameOptions.enabledCollections])
+
+  // Derive category counts from summaries
+  const categoryCounts = summaries.reduce((acc, s) => {
+    s.categories.forEach(cat => {
+      acc[cat] = (acc[cat] || 0) + 1
+    })
+    return acc
+  }, {} as Record<string, number>)
+
+  // Check if ANY category has more than 5 questions (protection logic)
+  const hasEnoughQuestionsPool = Object.values(categoryCounts).some(count => count >= 5)
+
+  // Helper to check if a specific difficulty level has ANY questions (optionally filtered by category)
+  const isDifficultyAvailable = (min: number, max: number, cat?: QuestionCategory | null) => {
+    let pool = summaries
+    if (cat) {
+      pool = pool.filter(s => s.categories.includes(cat))
+    }
+    return pool.some(s => s.difficulty >= min && s.difficulty <= max)
+  }
+
+  // Helper to check if a specific category has ANY questions for a specific difficulty
+  const isCategoryAvailableWithDifficulty = (cat: QuestionCategory, targetDiff?: number | null) => {
+    if (targetDiff === undefined || targetDiff === null) return true
+    // Difficulty levels are 0.1 wide, check ±0.05 around target
+    return summaries.some(s =>
+      s.categories.includes(cat) &&
+      Math.abs(s.difficulty - targetDiff) <= 0.05
+    )
+  }
 
   if (gameState.isLoading) {
     return (
@@ -46,13 +85,13 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
               </p>
             </div>
             <div className="flex gap-4">
-              <Button 
+              <Button
                 onClick={() => startGame(lobby)}
                 className="flex-1 bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
               >
                 Try Again
               </Button>
-              <Button 
+              <Button
                 onClick={onExit}
                 variant="outline"
                 className="border-slate-600 text-white hover:bg-slate-800"
@@ -88,20 +127,20 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                 <p>• <span className="text-purple-300 font-semibold">Turn Player</span> gets first crack at the question</p>
                 <p>• <span className="text-blue-300 font-semibold">Other Players</span> can score if turn player is wrong, or decrease the turn player's points by answering correctly</p>
                 <p>• Use <span className="text-orange-300 font-semibold">"I KNOW!"</span> power-up ({lobby.gameOptions.iKnowPowerupsPerPlayer}x) for a chance at double points when not in turn if turn player can't answer</p>
-                <p>• {lobby.gameOptions.questionTimeLimit}s to answer • {lobby.gameOptions.selectionTimeLimit}s to select</p>
+                <p>• {lobby.gameOptions.questionTimeLimit === 999 ? '∞' : `${lobby.gameOptions.questionTimeLimit}s`} to answer • {lobby.gameOptions.selectionTimeLimit === 999 ? '∞' : `${lobby.gameOptions.selectionTimeLimit}s`} to select</p>
                 <p>• {lobby.gameOptions.questionsPerGame} questions total</p>
                 <p>• Playing with up to {gameState.players.length - 1} opponent{gameState.players.length > 2 ? 's' : ''} or AI's</p>
               </div>
             </div>
             <div className="flex gap-4">
-              <Button 
+              <Button
                 onClick={() => startGame(lobby)}
                 disabled={gameState.isLoading}
                 className="flex-1 bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
               >
                 Start Game
               </Button>
-              <Button 
+              <Button
                 onClick={onExit}
                 variant="outline"
                 className="border-slate-600 text-white hover:bg-slate-800"
@@ -177,14 +216,14 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
             </div>
 
             <div className="flex gap-4">
-              <Button 
+              <Button
                 onClick={onExit}
                 variant="outline"
                 className="flex-1 border-slate-600 text-white hover:bg-slate-800"
               >
                 Back to Lobby
               </Button>
-              <Button 
+              <Button
                 onClick={onExit}
                 className="flex-1 bg-linear-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
               >
@@ -219,12 +258,12 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
               </p>
               <div className={cn(
                 "text-sm font-bold px-3 py-1 rounded",
-                gameState.selectionTimeRemaining <= 5 ? "bg-red-600/30 text-red-300" : "bg-slate-700/50 text-slate-300"
+                gameState.selectionTimeRemaining !== 999 && gameState.selectionTimeRemaining <= 5 ? "bg-red-600/30 text-red-300" : "bg-slate-700/50 text-slate-300"
               )}>
-                {STATUS_EMOJIS.timer} {gameState.selectionTimeRemaining}s
+                {STATUS_EMOJIS.timer} {gameState.selectionTimeRemaining === 999 ? '∞' : `${gameState.selectionTimeRemaining}s`}
               </div>
             </div>
-            
+
             {/* Show current selections being made */}
             {!isCurrentPlayersTurn && (gameState.currentSelectionCategory || gameState.currentSelectionDifficulty) && (
               <div className="mt-4 p-3 bg-purple-600/20 border border-purple-500/50 rounded-lg">
@@ -248,7 +287,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                 </div>
               </div>
             )}
-            
+
             {/* Show what the turn player has used so far */}
             {currentTurnPlayer && ((currentTurnPlayer.usedCategories?.length || 0) > 0 || (currentTurnPlayer.usedDifficulties?.length || 0) > 0) && (
               <div className="mt-3 p-3 bg-slate-700/30 border border-slate-600/50 rounded-lg">
@@ -302,25 +341,36 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                             </div>
                             <div className="grid grid-cols-2 gap-1">
                               {theme.categories.map((category) => {
+                                const count = categoryCounts[category] || 0
+                                const matchesDiff = isCategoryAvailableWithDifficulty(category as QuestionCategory, gameState.selectedDifficulty)
+                                const isLowCount = count < 5 && hasEnoughQuestionsPool && !gameState.selectedDifficulty
                                 const isUsed = isCategoryUsed(category as QuestionCategory, currentPlayer?.usedCategories || [])
+                                const isSelected = gameState.selectedCategory === category
+                                const isDisabled = (isUsed || isLowCount || !matchesDiff) && !isSelected
                                 const shortName = getShortenedCategoryName(category)
+
                                 return (
                                   <Button
                                     key={category}
-                                    onClick={() => !isUsed && selectCategory(category as QuestionCategory)}
-                                    disabled={isUsed}
+                                    onClick={() => !isDisabled && selectCategory(category as QuestionCategory)}
+                                    disabled={isDisabled}
                                     className={cn(
                                       "text-left justify-start h-auto py-1.5 px-2 text-xs relative",
                                       gameState.selectedCategory === category
                                         ? `${getCategoryColorClasses(category)} border border-white ring-1 ring-white ring-offset-1 ring-offset-slate-900`
                                         : isUsed
-                                        ? "bg-slate-800/50 text-slate-600 cursor-not-allowed line-through"
-                                        : getCategoryColorClasses(category)
+                                          ? "bg-slate-800/50 text-slate-600 cursor-not-allowed line-through"
+                                          : !matchesDiff
+                                            ? "bg-slate-800/20 text-slate-700 cursor-not-allowed opacity-20"
+                                            : isLowCount
+                                              ? "bg-slate-800/30 text-slate-500 cursor-not-allowed opacity-40 grayscale"
+                                              : getCategoryColorClasses(category)
                                     )}
-                                    title={category}
+                                    title={!matchesDiff ? 'No questions at selected difficulty' : isLowCount ? `Only ${count} questions remain (min 5 required)` : category}
                                   >
                                     <span className="mr-1.5 shrink-0">{getCategoryEmoji(category)}</span>
-                                    <span className="truncate">{shortName}</span>
+                                    <span className="truncate flex-1">{shortName}</span>
+                                    {isLowCount && <span className="text-[10px] opacity-70 ml-1">({count})</span>}
                                     {isUsed && <span className="ml-auto shrink-0 text-xs">{STATUS_EMOJIS.incorrect}</span>}
                                   </Button>
                                 )
@@ -344,15 +394,20 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                       {QUIZ_DIFFICULTY_LEVELS.map((level) => {
                         const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayerId)
                         const targetDifficulty = createDifficultyScore(level.max - 0.05)
-                        const isSelected = gameState.selectedDifficulty && 
+                        const isSelected = gameState.selectedDifficulty &&
                           Math.abs(gameState.selectedDifficulty - targetDifficulty) < 0.01
+
+                        const min = level.max - 0.1
+                        const max = level.max
+                        const isAvailable = isDifficultyAvailable(min, max, gameState.selectedCategory)
                         const isUsed = isDifficultyUsed(targetDifficulty, currentPlayer?.usedDifficulties || [])
-                        
+                        const isDisabled = (isUsed || !isAvailable) && !isSelected
+
                         return (
                           <Button
                             key={level.max}
-                            onClick={() => !isUsed && selectDifficulty(targetDifficulty)}
-                            disabled={isUsed}
+                            onClick={() => !isDisabled && selectDifficulty(targetDifficulty)}
+                            disabled={isDisabled}
                             className={cn(
                               "w-full text-center justify-center h-auto py-2 px-2 text-xs relative",
                               isSelected
@@ -360,14 +415,17 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                                 : "",
                               isUsed
                                 ? "bg-slate-800/50 text-slate-600 cursor-not-allowed opacity-50"
-                                : level.buttonColorClasses
+                                : !isAvailable
+                                  ? "bg-slate-800/20 text-slate-700 cursor-not-allowed opacity-30 grayscale"
+                                  : level.buttonColorClasses
                             )}
-                            title={isUsed ? `Already used` : level.description}
+                            title={isUsed ? `Already used` : !isAvailable ? 'No questions in this range' : level.description}
                           >
                             <div>
                               <div className={cn("font-semibold", isUsed && "line-through")}>
                                 {level.category}
                                 {isUsed && <span className="ml-1">✗</span>}
+                                {!isUsed && !isAvailable && <span className="ml-1 opacity-50">∅</span>}
                               </div>
                               <div className="text-[10px] opacity-80">{level.max * 100}%</div>
                             </div>
@@ -377,7 +435,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                     </div>
                   </div>
                 </div>
-                
+
                 {gameState.selectedCategory && gameState.selectedDifficulty && (
                   <div className="text-center py-2 px-4 bg-green-600/20 border border-green-600/50 rounded-lg">
                     <p className="text-green-300 font-semibold text-sm">
@@ -418,8 +476,8 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                                     isSelected
                                       ? "bg-purple-600 border border-purple-400 text-white"
                                       : isUsed
-                                      ? "bg-slate-800/50 text-slate-600 line-through"
-                                      : "bg-slate-700/50 text-slate-300"
+                                        ? "bg-slate-800/50 text-slate-600 line-through"
+                                        : "bg-slate-700/50 text-slate-300"
                                   )}
                                   title={category}
                                 >
@@ -446,10 +504,10 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                     <div className="grid grid-cols-2 gap-1.5">
                       {QUIZ_DIFFICULTY_LEVELS.map((level) => {
                         const targetDifficulty = createDifficultyScore(level.max - 0.05)
-                        const isSelected = gameState.currentSelectionDifficulty && 
+                        const isSelected = gameState.currentSelectionDifficulty &&
                           Math.abs(gameState.currentSelectionDifficulty - targetDifficulty) < 0.01
                         const isUsed = isDifficultyUsed(targetDifficulty, currentTurnPlayer?.usedDifficulties || [])
-                        
+
                         return (
                           <Button
                             key={level.max}
@@ -477,7 +535,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                     </div>
                   </div>
                 </div>
-                
+
                 {gameState.currentSelectionCategory && gameState.currentSelectionDifficulty && (
                   <div className="text-center py-2 px-4 bg-green-600/20 border border-green-600/50 rounded-lg">
                     <p className="text-green-300 font-semibold text-sm">
@@ -487,7 +545,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                 )}
               </>
             )}
-            <Button 
+            <Button
               onClick={endGame}
               variant="outline"
               className="w-full border-slate-600 text-white hover:bg-slate-800"
@@ -512,12 +570,12 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                 .map((player, index) => {
                   const isTurnPlayer = player.id === currentTurnPlayer?.id
                   return (
-                    <div 
+                    <div
                       key={player.id}
                       className={cn(
                         "flex items-center gap-2 p-3 rounded-lg relative",
-                        player.id === gameState.currentPlayerId 
-                          ? "bg-purple-600/30 border border-purple-500/50" 
+                        player.id === gameState.currentPlayerId
+                          ? "bg-purple-600/30 border border-purple-500/50"
                           : "bg-slate-700/30",
                         isTurnPlayer && "ring-2 ring-yellow-500/50"
                       )}
@@ -541,11 +599,11 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                           "text-sm font-semibold truncate",
                           player.id === gameState.currentPlayerId ? "text-purple-200" : "text-white"
                         )}>
-                        <span className="text-lg mr-2">{getAvatarEmoji(player.avatar || (player.isAI ? 'robot' : 'default'))}</span>
-                        {player.name}
-                        {player.isAI && ` ${PLAYER_STATE_EMOJIS.ai}`}
-                      </div>
-                      <div className="text-xs text-slate-400">{player.score.toFixed(2)} pts</div>
+                          <span className="text-lg mr-2">{getAvatarEmoji(player.avatar || (player.isAI ? 'robot' : 'default'))}</span>
+                          {player.name}
+                          {player.isAI && ` ${PLAYER_STATE_EMOJIS.ai}`}
+                        </div>
+                        <div className="text-xs text-slate-400">{player.score.toFixed(2)} pts</div>
                       </div>
                     </div>
                   )
@@ -574,15 +632,15 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
 
           <Card className={cn(
             "border-slate-700 backdrop-blur-sm px-6 py-3",
-            gameState.timeRemaining <= 5 ? "bg-red-900/50" : "bg-slate-800/50"
+            gameState.timeRemaining !== 999 && gameState.timeRemaining <= 5 ? "bg-red-900/50" : "bg-slate-800/50"
           )}>
             <div className="text-white">
               <div className="text-sm text-slate-400">Time</div>
               <div className={cn(
                 "text-2xl font-bold",
-                gameState.timeRemaining <= 5 ? "text-red-400" : "text-purple-400"
+                gameState.timeRemaining !== 999 && gameState.timeRemaining <= 5 ? "text-red-400" : "text-purple-400"
               )}>
-                {gameState.timeRemaining}s
+                {gameState.timeRemaining === 999 ? '∞' : `${gameState.timeRemaining}s`}
               </div>
             </div>
           </Card>
@@ -591,64 +649,75 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
         {/* Question Card */}
         <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
           <CardHeader>
-            <div className="w-full h-40 md:h-56 bg-center bg-cover relative" style={{ backgroundImage: "url('" + getQuestionClassBackgroundUrl(currentQuestion.questionClass?.[0] || '') + "')" }}>
+            <div className="w-full h-40 md:h-56 bg-center bg-cover relative overflow-hidden" style={{ backgroundImage: "url('" + getQuestionClassBackgroundUrl(currentQuestion.questionClass?.[0] || '') + "')" }}>
               <div className="absolute inset-0 bg-gradient-to-b from-transparent to-slate-900/80" />
-              <div className="flex justify-between items-start">
-              <div className="space-y-2 flex-1">
-                <div className="flex gap-2 items-center flex-wrap">
-                  {currentQuestion.categories.map((cat) => (
-                    <span key={cat} className={cn("text-xs px-2 py-1 rounded", getCategoryColorClasses(cat))}>
-                      {getCategoryEmoji(cat)} {cat}
-                    </span>
-                  ))}
-                  <span className={cn(
-                    "text-xs px-2 py-1 rounded",
-                    getDifficultyColorClasses(currentQuestion.difficulty)
-                  )}>
-                    {getDifficultyEmoji(currentQuestion.difficulty)} {QUIZ_DIFFICULTY_LEVELS.find(l => currentQuestion.difficulty <= l.max)?.category || 'Unknown'}
-                  </span>
-                  <span className="text-xs px-3 py-1 rounded bg-linear-to-r from-yellow-600 to-yellow-500 text-white font-semibold border border-yellow-400/50">
-                    {PLAYER_STATE_EMOJIS.host} Turn Player: {currentTurnPlayer?.name}
-                  </span>
-                </div>
-                <CardTitle className="text-2xl text-white">
-                  {currentQuestion.question}
-                </CardTitle>
-                <p className="text-sm text-slate-400">
-                  {isCurrentPlayersTurn 
-                    ? "Get it right to score! Others can't score if you're correct." 
-                    : "Answer correctly to score if the turn player is wrong!"}
-                </p>
-                {/* Show I KNOW usage indicator */}
-                {(() => {
-                  const iKnowPlayers = gameState.players.filter(p => p.usedIKnowThisRound)
-                  if (iKnowPlayers.length === 0) return null
-                  
-                  return (
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-xs font-bold text-orange-400 animate-pulse">{STATUS_EMOJIS.lightning} I KNOW! ACTIVE:</span>
-                      {iKnowPlayers.map(player => (
-                        <span 
-                          key={player.id}
-                          className="text-xs px-2 py-1 rounded bg-linear-to-r from-orange-600 to-red-600 text-white font-semibold border border-orange-400"
-                        >
-                          {player.name} {player.isAI && PLAYER_STATE_EMOJIS.ai}
-                        </span>
-                      ))}
+
+              {/* Floating Collection Badge - Pinned to absolute corner */}
+              <div className="absolute top-0 right-0 z-20 flex flex-col items-end pointer-events-none">
+                {currentQuestion.questionCollection?.map((coll) => (
+                  <div key={coll} className="flex items-center gap-3 px-5 py-3 rounded-bl-3xl bg-indigo-950/90 backdrop-blur-xl border-l border-b border-indigo-400/30 text-white shadow-2xl transform active:scale-95 transition-all">
+                    <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center overflow-hidden shadow-inner border border-indigo-400/10">
+                      <img
+                        src={getCollectionImageUrl(coll)}
+                        alt={coll}
+                        className="w-8 h-8 object-contain"
+                      />
                     </div>
-                  )
-                })()}
+                    <div className="flex flex-col pr-1">
+                      <span className="text-[9px] uppercase font-black text-indigo-400 tracking-[0.2em] leading-none mb-1.5 opacity-80">Collection</span>
+                      <span className="text-lg md:text-xl font-black tracking-tighter leading-none uppercase drop-shadow-md">{coll}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <Button 
-                onClick={endGame}
-                variant="outline"
-                size="sm"
-                className="border-slate-600 text-slate-400 hover:bg-slate-800 hover:text-white"
-              >
-                Exit
-              </Button>
+              <div className="flex justify-between items-start">
+                <div className="space-y-2 flex-1 pr-48 md:pr-72 lg:pr-80">
+                  <div className="flex gap-2 items-center flex-wrap">
+                    {currentQuestion.categories.map((cat) => (
+                      <span key={cat} className={cn("text-xs px-2 py-1 rounded", getCategoryColorClasses(cat))}>
+                        {getCategoryEmoji(cat)} {cat}
+                      </span>
+                    ))}
+                    <span className={cn(
+                      "text-xs px-2 py-1 rounded",
+                      getDifficultyColorClasses(currentQuestion.difficulty)
+                    )}>
+                      {getDifficultyEmoji(currentQuestion.difficulty)} {QUIZ_DIFFICULTY_LEVELS.find(l => currentQuestion.difficulty <= l.max)?.category || 'Unknown'}
+                    </span>
+                    <span className="text-xs px-3 py-1 rounded bg-linear-to-r from-yellow-600 to-yellow-500 text-white font-semibold border border-yellow-400/50">
+                      {PLAYER_STATE_EMOJIS.host} Turn Player: {currentTurnPlayer?.name}
+                    </span>
+                  </div>
+                  <CardTitle className="text-2xl text-white">
+                    {currentQuestion.question}
+                  </CardTitle>
+                  <p className="text-sm text-slate-400">
+                    {isCurrentPlayersTurn
+                      ? "Get it right to score! Others can't score if you're correct."
+                      : "Answer correctly to score if the turn player is wrong!"}
+                  </p>
+                  {/* Show I KNOW usage indicator */}
+                  {(() => {
+                    const iKnowPlayers = gameState.players.filter(p => p.usedIKnowThisRound)
+                    if (iKnowPlayers.length === 0) return null
+
+                    return (
+                      <div className="flex items-center gap-2 mt-2">
+                        <span className="text-xs font-bold text-orange-400 animate-pulse">{STATUS_EMOJIS.lightning} I KNOW! ACTIVE:</span>
+                        {iKnowPlayers.map(player => (
+                          <span
+                            key={player.id}
+                            className="text-xs px-2 py-1 rounded bg-linear-to-r from-orange-600 to-red-600 text-white font-semibold border border-orange-400"
+                          >
+                            {player.name} {player.isAI && PLAYER_STATE_EMOJIS.ai}
+                          </span>
+                        ))}
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
             </div>
-          </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* I KNOW Button for non-turn players */}
@@ -659,7 +728,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                   const powerupsLeft = currentPlayer?.iKnowPowerupsRemaining || 0
                   const usedThisRound = currentPlayer?.usedIKnowThisRound || false
                   const hasAnswered = currentPlayer?.hasAnswered || false
-                  
+
                   if (usedThisRound) {
                     return (
                       <div className="px-4 py-2 rounded-lg bg-linear-to-r from-orange-600 to-red-600 text-white font-bold border-2 border-orange-400">
@@ -667,7 +736,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                       </div>
                     )
                   }
-                  
+
                   return (
                     <Button
                       onClick={() => useIKnow(gameState.currentPlayerId)}
@@ -685,16 +754,16 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                 })()}
               </div>
             )}
-            
+
             {currentQuestion.answers.map((answer, index) => {
               const currentPlayer = gameState.players.find(p => p.id === gameState.currentPlayerId)
               const hasPlayerAnswered = currentPlayer?.hasAnswered || false
-              
+
               // Find ALL players who selected this answer (including current player)
               const playersWhoSelectedThis = gameState.players.filter(
                 p => p.selectedAnswer === index
               )
-              
+
               return (
                 <div key={index} className="space-y-1">
                   <div className="flex gap-2 items-center">
@@ -713,7 +782,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                       <span className="mr-3 font-bold">{String.fromCharCode(65 + index)}.</span>
                       {answer}
                     </Button>
-                    
+
                     {/* Show player avatars who selected this answer */}
                     {playersWhoSelectedThis.length > 0 && (hasPlayerAnswered || gameState.gamePhase === 'results') && (
                       <div className="flex gap-1 items-center">
@@ -766,7 +835,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                 </div>
               )
             })}
-            
+
             {gameState.gamePhase === 'answering' && gameState.players.find(p => p.id === gameState.currentPlayerId)?.hasAnswered && (
               <div className="text-center text-purple-300 text-sm py-2 animate-pulse">
                 Waiting for other players...
@@ -840,9 +909,9 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                           explanation = '🚫 Turn player was correct'
                         }
                       }
-                      
+
                       return (
-                        <div 
+                        <div
                           key={player.id}
                           className={cn(
                             "p-2 rounded",
@@ -871,7 +940,7 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                               "font-bold",
                               pointsEarned > 0.001 ? "text-green-400" : pointsEarned < -0.001 ? "text-red-400" : "text-purple-300"
                             )}>
-                              {Math.abs(pointsEarned) > 0.001 
+                              {Math.abs(pointsEarned) > 0.001
                                 ? (pointsEarned > 0 ? `+${pointsEarned.toFixed(2)}` : pointsEarned.toFixed(2))
                                 : '—'
                               }
@@ -896,6 +965,20 @@ export function GameArea({ lobby, onExit }: GameAreaProps) {
                 </Button>
               </div>
             )}
+
+            {/* Always visible Exit button at the bottom */}
+            <div className="pt-6 border-t border-slate-700/50 mt-6">
+              <Button
+                onClick={() => {
+                  endGame()
+                  onExit()
+                }}
+                variant="ghost"
+                className="w-full text-slate-400 hover:text-white hover:bg-red-950/30 transition-all border border-transparent hover:border-red-900/40"
+              >
+                Exit Game
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -1,5 +1,5 @@
 import { supabase } from '@/database/supabase'
-import type { Question, QuestionCategory, QuestionClass } from '@/lib/utils'
+import type { Question, QuestionCategory, QuestionClass, QuestionCollection } from '@/lib/utils'
 import { createDifficultyScore } from '@/lib/utils'
 
 /**
@@ -32,7 +32,7 @@ function mapRowToQuestion(row: QuestionRow): Question {
     correctAnswerIndex: row.correct_answer_index,
     categories: row.categories as QuestionCategory[],
     questionClass: row.question_class as QuestionClass[],
-    questionCollection: row.question_collection,
+    questionCollection: row.question_collection as QuestionCollection[],
     difficulty: createDifficultyScore(row.difficulty)
   }
 }
@@ -87,6 +87,7 @@ export async function getQuestionsWithFilters(filters: {
   category?: QuestionCategory
   minDifficulty?: number
   maxDifficulty?: number
+  collections?: QuestionCollection[]  // Filter by collections (empty = all)
 }): Promise<Question[]> {
   let query = supabase.from('questions').select('*')
 
@@ -101,6 +102,12 @@ export async function getQuestionsWithFilters(filters: {
   }
   if (filters.maxDifficulty !== undefined) {
     query = query.lte('difficulty', filters.maxDifficulty)
+  }
+  if (filters.collections && filters.collections.length > 0) {
+    // Filter to only questions that have at least one of the enabled collections
+    // Use the overlap operator (&&) to check if arrays have any common elements
+    const collectionsArray = `{${filters.collections.map(c => `"${c}"`).join(',')}}`
+    query = query.filter('question_collection', 'ov', collectionsArray)
   }
 
   const { data, error } = await query
@@ -126,25 +133,6 @@ export async function getQuestionCount(): Promise<number> {
   return count || 0
 }
 
-export async function getQuestionCountByCategory(): Promise<Record<string, number>> {
-  const { data, error } = await supabase
-    .from('questions')
-    .select('categories')
-
-  if (error) {
-    throw new Error(`Failed to fetch question counts: ${error.message}`)
-  }
-
-  const counts: Record<string, number> = {}
-  data?.forEach(row => {
-    // Each question can contribute to multiple category counts
-    row.categories?.forEach((category: string) => {
-      counts[category] = (counts[category] || 0) + 1
-    })
-  })
-
-  return counts
-}
 
 export async function updateQuestionDifficultyById(
   questionId: string,
@@ -197,7 +185,7 @@ export async function getQuestionStats(questionId: string): Promise<{
   if (error) {
     throw new Error(`Failed to fetch question stats: ${error.message}`)
   }
-  
+
   return {
     difficulty: data.difficulty,
     correct_count: data.correct_count || 0,
@@ -218,4 +206,39 @@ export async function getQuestionDifficultyById(questionId: string): Promise<num
   }
 
   return data.difficulty
+}
+
+
+export interface QuestionSummary {
+  id: string
+  categories: QuestionCategory[]
+  difficulty: number
+  questionCollection: QuestionCollection[]
+}
+
+/**
+ * Get minimal question data for distribution analysis
+ */
+export async function getQuestionSummaries(collections?: QuestionCollection[]): Promise<QuestionSummary[]> {
+  let query = supabase
+    .from('questions')
+    .select('id, categories, difficulty, question_collection')
+
+  if (collections && collections.length > 0 && !collections.includes('__NONE__')) {
+    const collectionsArray = `{${collections.map(c => `"${c}"`).join(',')}}`
+    query = query.filter('question_collection', 'ov', collectionsArray)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    throw new Error(`Failed to fetch summaries: ${error.message}`)
+  }
+
+  return (data || []).map(row => ({
+    id: row.id,
+    categories: row.categories as QuestionCategory[],
+    difficulty: row.difficulty,
+    questionCollection: row.question_collection as QuestionCollection[]
+  }))
 }

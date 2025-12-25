@@ -1,10 +1,10 @@
 import type { LobbyState, Player, GameOptions } from '@/lib/utils'
 import { AI_PERSONALITIES } from '@/lib/constants'
-import { 
-  QUESTIONS_PER_GAME, 
-  QUESTION_TIME_LIMIT, 
-  SELECTION_TIME_LIMIT, 
-  I_KNOW_POWERUPS_PER_PLAYER 
+import {
+  QUESTIONS_PER_GAME,
+  QUESTION_TIME_LIMIT,
+  SELECTION_TIME_LIMIT,
+  I_KNOW_POWERUPS_PER_PLAYER
 } from '@/lib/utils'
 
 /**
@@ -26,7 +26,8 @@ export function createLobby(hostPlayer: Player): LobbyState {
       questionsPerGame: QUESTIONS_PER_GAME,
       questionTimeLimit: QUESTION_TIME_LIMIT,
       selectionTimeLimit: SELECTION_TIME_LIMIT,
-      iKnowPowerupsPerPlayer: I_KNOW_POWERUPS_PER_PLAYER
+      iKnowPowerupsPerPlayer: I_KNOW_POWERUPS_PER_PLAYER,
+      enabledCollections: []  // Empty = all collections enabled
     }
   }
 }

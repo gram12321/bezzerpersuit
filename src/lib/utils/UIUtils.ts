@@ -26,6 +26,41 @@ export const CATEGORY_EMOJIS: Record<string, string> = {
 }
 
 /**
+ * Collection icons for question packs (using Icons8 Fluency for a premium icon look)
+ */
+export const COLLECTION_ICONS: Record<string, string> = {
+  'BaseEastern': 'fluency/96/mosque',
+  'BaseFarEast': 'fluency/96/pagoda',
+  'BaseGlobal': '3d-fluency/94/globe',
+  'BaseLatin': 'fluency/96/flamingo',
+  'BaseMiddleEast': 'fluency/96/kaaba',
+  'BaseWestern': 'fluency/96/museum',
+  'Basegame': 'fluency/96/controller',
+  'China': 'fluency/96/china-circular',
+  'Denmark National': 'fluency/96/denmark-circular',
+  'Europe': 'fluency/96/castle',
+  'European Union': 'fluency/96/european-union-circular-flag',
+  'Germany National': 'fluency/96/germany-circular',
+  'Renaissance': 'fluency/96/paint-palette',
+  'Silk Road': 'fluency/96/cloth',
+  'The Impossible': 'fluency/96/skull',
+  'UK National': 'fluency/96/great-britain-circular',
+  'Default': 'fluency/96/box'
+}
+
+/**
+ * Get collection icon URL
+ */
+export function getCollectionImageUrl(collection: string): string {
+  const match = Object.keys(COLLECTION_ICONS).find(
+    key => key.toLowerCase() === collection.toLowerCase() ||
+      collection.toLowerCase().includes(key.toLowerCase())
+  )
+  const iconPath = match ? COLLECTION_ICONS[match] : COLLECTION_ICONS.Default
+  return `https://img.icons8.com/${iconPath}.png`
+}
+
+/**
  * Get category emoji
  */
 export function getCategoryEmoji(category: string): string {
@@ -210,7 +245,7 @@ export const DIFFICULTY_EMOJIS = {
  */
 export function getDifficultyEmoji(difficulty: number): string {
   const clamped = Math.max(0, Math.min(1, difficulty))
-  
+
   if (clamped <= 0.1) return DIFFICULTY_EMOJIS.trivial
   if (clamped <= 0.2) return DIFFICULTY_EMOJIS.easyPickings
   if (clamped <= 0.3) return DIFFICULTY_EMOJIS.comfortZone

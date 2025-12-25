@@ -2,8 +2,8 @@ import { useEffect, useState } from "react"
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@/components/ui"
 import { getAllQuestionsForAdmin, getAdminQuestionStats, removeQuestion, deleteAllUsers, type AdminQuestionStats } from "@/lib/services/adminService"
 import { calculateConfidence } from "@/lib/services"
-import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS, getCategoryEmoji, getCategoryColorClasses, getDifficultyEmoji, STATUS_EMOJIS } from "@/lib/utils"
-import type { Question, QuestionCategory } from "@/lib/utils"
+import { cn, getDifficultyColorClasses, QUIZ_DIFFICULTY_LEVELS, getCategoryEmoji, getCategoryColorClasses, getDifficultyEmoji, STATUS_EMOJIS, getCollectionImageUrl } from "@/lib/utils"
+import type { Question, QuestionCategory, QuestionCollection } from "@/lib/utils"
 
 interface AdminDashboardProps {
   onExit: () => void
@@ -13,7 +13,7 @@ type SortField = 'question' | 'category' | 'difficulty' | 'collection' | 'class'
 type SortOrder = 'asc' | 'desc'
 
 interface FilterState {
-  collection: string | null
+  collection: QuestionCollection | null
   class: string | null
   category: QuestionCategory | null
   difficulty: 'all' | 'easy' | 'medium' | 'hard' | 'expert'
@@ -45,7 +45,7 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
   // Get unique collections and classes from questions
   const uniqueCollections = Array.from(
     new Set(questions.flatMap(q => q.questionCollection || []))
-  ).sort()
+  ).sort() as QuestionCollection[]
   const uniqueClasses = Array.from(
     new Set(questions.flatMap(q => q.questionClass || []))
   ).sort()
@@ -78,7 +78,7 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
       setIsDeletingUsers(true)
       setError(null)
       const result = await deleteAllUsers()
-      
+
       if (result.success) {
         alert(`Successfully deleted ${result.deletedCount} user(s)`)
       } else {
@@ -182,14 +182,14 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
             <p className="text-purple-200 mt-2">Manage quiz questions and view statistics</p>
           </div>
           <div className="flex gap-3">
-            <Button 
+            <Button
               onClick={handleDeleteAllUsers}
               disabled={isDeletingUsers}
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               {isDeletingUsers ? 'Deleting...' : 'Delete All Users'}
             </Button>
-            <Button 
+            <Button
               onClick={onExit}
               variant="outline"
               className="border-slate-600 text-slate-400 hover:bg-slate-800 hover:text-white"
@@ -361,7 +361,7 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
                 <label className="text-xs font-semibold text-slate-400 uppercase">Collection</label>
                 <select
                   value={filters.collection || 'all'}
-                  onChange={(e) => setFilters({ ...filters, collection: e.target.value === 'all' ? null : e.target.value })}
+                  onChange={(e) => setFilters({ ...filters, collection: e.target.value === 'all' ? null : e.target.value as QuestionCollection })}
                   className="px-2 py-1 bg-slate-700/50 border border-slate-600 rounded text-xs text-slate-200 focus:outline-none focus:border-purple-500"
                 >
                   <option value="all">All</option>
@@ -439,31 +439,31 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
                   <thead className="bg-slate-900/50 border-b border-slate-700">
                     <tr>
                       <th className="text-left p-3 text-xs font-semibold text-slate-400 uppercase tracking-wider w-12">#</th>
-                      <th 
+                      <th
                         className="text-left p-3 text-xs font-semibold text-slate-400 uppercase tracking-wider cursor-pointer hover:text-purple-300"
                         onClick={() => setSort({ field: 'question', order: sort.field === 'question' && sort.order === 'asc' ? 'desc' : 'asc' })}
                       >
                         Question {sort.field === 'question' && (sort.order === 'asc' ? '↑' : '↓')}
                       </th>
-                      <th 
+                      <th
                         className="text-left p-3 text-xs font-semibold text-slate-400 uppercase tracking-wider w-28 cursor-pointer hover:text-purple-300"
                         onClick={() => setSort({ field: 'category', order: sort.field === 'category' && sort.order === 'asc' ? 'desc' : 'asc' })}
                       >
                         Category {sort.field === 'category' && (sort.order === 'asc' ? '↑' : '↓')}
                       </th>
-                      <th 
+                      <th
                         className="text-left p-3 text-xs font-semibold text-slate-400 uppercase tracking-wider w-24 cursor-pointer hover:text-purple-300"
                         onClick={() => setSort({ field: 'collection', order: sort.field === 'collection' && sort.order === 'asc' ? 'desc' : 'asc' })}
                       >
                         Collection {sort.field === 'collection' && (sort.order === 'asc' ? '↑' : '↓')}
                       </th>
-                      <th 
+                      <th
                         className="text-left p-3 text-xs font-semibold text-slate-400 uppercase tracking-wider w-20 cursor-pointer hover:text-purple-300"
                         onClick={() => setSort({ field: 'class', order: sort.field === 'class' && sort.order === 'asc' ? 'desc' : 'asc' })}
                       >
                         Class {sort.field === 'class' && (sort.order === 'asc' ? '↑' : '↓')}
                       </th>
-                      <th 
+                      <th
                         className="text-left p-3 text-xs font-semibold text-slate-400 uppercase tracking-wider w-28 cursor-pointer hover:text-purple-300"
                         onClick={() => setSort({ field: 'difficulty', order: sort.field === 'difficulty' && sort.order === 'asc' ? 'desc' : 'asc' })}
                       >
@@ -475,7 +475,7 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
                   </thead>
                   <tbody className="divide-y divide-slate-700/50">
                     {filteredAndSortedQuestions.map((question, idx) => (
-                      <tr 
+                      <tr
                         key={question.id}
                         className={cn(
                           "transition-colors",
@@ -486,7 +486,7 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
                           <div className="text-slate-500 font-mono text-sm">{idx + 1}</div>
                         </td>
                         <td className="p-3">
-                          <div 
+                          <div
                             className="cursor-pointer"
                             onClick={() => setSelectedQuestion(selectedQuestion === question.id ? null : question.id)}
                           >
@@ -532,7 +532,8 @@ export function AdminDashboard({ onExit }: AdminDashboardProps) {
                           <div className="flex flex-wrap gap-1">
                             {question.questionCollection && question.questionCollection.length > 0 ? (
                               question.questionCollection.map((col) => (
-                                <span key={col} className="text-xs px-2 py-1 rounded bg-blue-600/30 text-blue-300 whitespace-nowrap">
+                                <span key={col} className="text-[10px] px-1.5 py-0.5 rounded bg-blue-600/30 text-blue-300 whitespace-nowrap flex items-center gap-1.5 border border-blue-500/20">
+                                  <img src={getCollectionImageUrl(col)} alt={col} className="w-3.5 h-3.5 object-contain" />
                                   {col}
                                 </span>
                               ))

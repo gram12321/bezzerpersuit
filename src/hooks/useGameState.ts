@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { Question, Player, LobbyState, GamePhase, QuestionCategory, DifficultyScore } from '@/lib/utils'
+import type { Question, Player, LobbyState, GamePhase, QuestionCategory, DifficultyScore, GameOptions } from '@/lib/utils'
 import { fetchRandomQuestions, updateQuestionStatsFromPlayers, playerStatsService, updatePlayerSpoilerValues } from '@/lib/services'
 import {
   haveAllPlayersAnswered,
@@ -39,6 +39,7 @@ export interface GameState {
   selectedDifficulty: DifficultyScore | null
   currentSelectionCategory: QuestionCategory | null
   currentSelectionDifficulty: DifficultyScore | null
+  gameOptions: GameOptions | null
 }
 
 import { authService } from '@/lib/services'
@@ -117,7 +118,8 @@ export function useGameState(initialLobby?: LobbyState) {
     selectedCategory: null,
     selectedDifficulty: null,
     currentSelectionCategory: null,
-    currentSelectionDifficulty: null
+    currentSelectionDifficulty: null,
+    gameOptions: initialLobby?.gameOptions || null
   })
 
   // Ref to track which questions we've already updated stats for
@@ -159,10 +161,11 @@ export function useGameState(initialLobby?: LobbyState) {
         selectedCategory: null,
         selectedDifficulty: null,
         currentSelectionCategory: null,
-        currentSelectionDifficulty: null
+        currentSelectionDifficulty: null,
+        gameOptions: lobby?.gameOptions || initialLobby?.gameOptions || prev.gameOptions
       }
     })
-  }, [])
+  }, [initialLobby])
 
   // Selection timer countdown
   useEffect(() => {
@@ -170,7 +173,22 @@ export function useGameState(initialLobby?: LobbyState) {
 
     const timer = setInterval(() => {
       setGameState(prev => {
-        if (prev.selectionTimeRemaining <= 1) {
+        // Stop timer if selection is already complete or loading
+        if ((prev.selectedCategory && prev.selectedDifficulty) || prev.isLoading) {
+          return prev
+        }
+
+        // Skip countdown if unlimited time (999)
+        if (prev.selectionTimeRemaining === 999) {
+          return prev
+        }
+
+        // Prevent negative time and multiple triggers
+        if (prev.selectionTimeRemaining <= 0) {
+          return prev
+        }
+
+        if (prev.selectionTimeRemaining === 1) {
           // Time's up - auto-select using AI logic
           const currentPlayer = prev.players.find(p => p.id === prev.currentTurnPlayerId)
           if (!currentPlayer) {
@@ -261,13 +279,23 @@ export function useGameState(initialLobby?: LobbyState) {
       const sd = typeof gameState.selectedDifficulty === 'number' ? Number(gameState.selectedDifficulty.toFixed(2)) : gameState.selectedDifficulty
       console.log('[useGameState] requesting question', { selectedCategory: gameState.selectedCategory, selectedDifficulty: sd })
       const turnPlayerId = gameState.currentTurnPlayerId
-      fetchRandomQuestions(
+
+      // Wrap the entire fetch with a timeout to prevent infinite hangs
+      const QUESTION_FETCH_TIMEOUT_MS = 10000 // 10 second timeout
+      const fetchPromise = fetchRandomQuestions(
         1,
         gameState.selectedCategory!,
         gameState.selectedDifficulty!,
         humanPlayerIds,
-        turnPlayerId
+        turnPlayerId,
+        gameState.gameOptions?.enabledCollections || []
       )
+
+      const timeoutPromise = new Promise<Question[]>((_, reject) =>
+        setTimeout(() => reject(new Error('Question fetch timed out')), QUESTION_FETCH_TIMEOUT_MS)
+      )
+
+      Promise.race([fetchPromise, timeoutPromise])
         .then(questions => {
           if (questions.length === 0) {
             throw new Error('No questions found')
@@ -294,15 +322,23 @@ export function useGameState(initialLobby?: LobbyState) {
           })
         })
         .catch(error => {
-          console.error('Failed to load question:', error)
+          console.error('[useGameState] Failed to load question:', error)
+          if (error instanceof Error && error.message.includes('timed out')) {
+            console.warn('[useGameState] Question fetch exceeded timeout - possible network or database issue')
+          }
           setGameState(prev => ({
             ...prev,
             isLoading: false,
-            error: 'Failed to load question. Please try again.'
+            selectedCategory: null,
+            selectedDifficulty: null,
+            currentSelectionCategory: null,
+            currentSelectionDifficulty: null,
+            error: 'Failed to load question. The category might be empty or a database error occurred.'
           }))
         })
     }, 2000) // 2 second delay
     return () => clearTimeout(timer)
+
   }, [gameState.selectedCategory, gameState.selectedDifficulty, gameState.gamePhase, gameState.isGameActive])
 
   // AI players decide on boost usage and auto-answer when question loads
@@ -343,6 +379,11 @@ export function useGameState(initialLobby?: LobbyState) {
 
     const timer = setInterval(() => {
       setGameState(prev => {
+        // Skip countdown if unlimited time (999)
+        if (prev.timeRemaining === 999) {
+          return prev
+        }
+
         if (prev.timeRemaining <= 1) {
           const currentQuestion = prev.questions[prev.currentQuestionIndex]
 
@@ -485,19 +526,27 @@ export function useGameState(initialLobby?: LobbyState) {
   }, [])
 
   const selectCategory = useCallback((category: QuestionCategory) => {
-    setGameState(prev => ({
-      ...prev,
-      selectedCategory: category,
-      currentSelectionCategory: category
-    }))
+    setGameState(prev => {
+      const isAlreadySelected = prev.selectedCategory === category
+      return {
+        ...prev,
+        selectedCategory: isAlreadySelected ? null : category,
+        currentSelectionCategory: isAlreadySelected ? null : category
+      }
+    })
   }, [])
 
   const selectDifficulty = useCallback((difficulty: DifficultyScore) => {
-    setGameState(prev => ({
-      ...prev,
-      selectedDifficulty: difficulty,
-      currentSelectionDifficulty: difficulty
-    }))
+    setGameState(prev => {
+      const isAlreadySelected = prev.selectedDifficulty &&
+        Math.abs(prev.selectedDifficulty - difficulty) < 0.01
+
+      return {
+        ...prev,
+        selectedDifficulty: isAlreadySelected ? null : difficulty,
+        currentSelectionDifficulty: isAlreadySelected ? null : difficulty
+      }
+    })
   }, [])
 
   const getCurrentTurnPlayer = useCallback(() => {
