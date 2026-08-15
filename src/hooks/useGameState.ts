@@ -124,6 +124,8 @@ export function useGameState(initialLobby?: LobbyState) {
 
   // Ref to track which questions we've already updated stats for
   const lastProcessedQuestionRef = useRef<string | null>(null)
+  const isFetchingRef = useRef(false)
+  const aiTurnTimersRef = useRef<number[]>([])
 
   const startGame = useCallback(async (lobby?: LobbyState) => {
     setGameState(prev => {
@@ -235,30 +237,39 @@ export function useGameState(initialLobby?: LobbyState) {
       currentTurnPlayer.usedDifficulties || []
     )
 
-    // Show category selection first
-    setTimeout(() => {
+    // Clear any existing timers before starting new sequence
+    aiTurnTimersRef.current.forEach(clearTimeout)
+    aiTurnTimersRef.current = []
+
+    const t1 = window.setTimeout(() => {
       setGameState(prev => ({
         ...prev,
         currentSelectionCategory: category
       }))
 
-      // Show difficulty selection after another delay
-      setTimeout(() => {
+      const t2 = window.setTimeout(() => {
         setGameState(prev => ({
           ...prev,
           currentSelectionDifficulty: difficulty
         }))
 
-        // Finalize both selections after brief pause
-        setTimeout(() => {
+        const t3 = window.setTimeout(() => {
           setGameState(prev => ({
             ...prev,
             selectedCategory: category,
             selectedDifficulty: difficulty
           }))
         }, 800)
+        aiTurnTimersRef.current.push(t3)
       }, 1500)
+      aiTurnTimersRef.current.push(t2)
     }, 1000)
+    aiTurnTimersRef.current.push(t1)
+
+    return () => {
+      aiTurnTimersRef.current.forEach(clearTimeout)
+      aiTurnTimersRef.current = []
+    }
   }, [gameState.isGameActive, gameState.gamePhase, gameState.currentTurnPlayerId])
 
   // Load question when both category and difficulty are selected, with a brief delay
@@ -266,79 +277,97 @@ export function useGameState(initialLobby?: LobbyState) {
     if (!gameState.isGameActive || gameState.gamePhase !== 'category-selection') {
       return
     }
-    if (!gameState.selectedCategory || !gameState.selectedDifficulty) {
+
+    // We need BOTH to be selected, and we MUST NOT be already loading
+    if (!gameState.selectedCategory || !gameState.selectedDifficulty || gameState.isLoading || isFetchingRef.current) {
       return
     }
+
     // Add a delay before loading the question, but do not set isLoading yet
-    const timer = setTimeout(() => {
+    const timer = window.setTimeout(async () => {
+      // Re-verify conditions inside the timeout callback
+      if (isFetchingRef.current) {
+        console.log('[useGameState] Suppressing concurrent fetch request')
+        return
+      }
+
+      console.log('[useGameState] requesting question', {
+        selectedCategory: gameState.selectedCategory,
+        selectedDifficulty: gameState.selectedDifficulty
+      })
+
+      isFetchingRef.current = true
       setGameState(prev => ({ ...prev, isLoading: true, error: null }))
-      // Gather human player user IDs for spoiler tracking
+
       const humanPlayerIds = gameState.players
         .filter(p => !p.isAI && p.id)
         .map(p => p.id)
-      const sd = typeof gameState.selectedDifficulty === 'number' ? Number(gameState.selectedDifficulty.toFixed(2)) : gameState.selectedDifficulty
-      console.log('[useGameState] requesting question', { selectedCategory: gameState.selectedCategory, selectedDifficulty: sd })
       const turnPlayerId = gameState.currentTurnPlayerId
 
-      // Wrap the entire fetch with a timeout to prevent infinite hangs
-      const QUESTION_FETCH_TIMEOUT_MS = 10000 // 10 second timeout
-      const fetchPromise = fetchRandomQuestions(
-        1,
-        gameState.selectedCategory!,
-        gameState.selectedDifficulty!,
-        humanPlayerIds,
-        turnPlayerId,
-        gameState.gameOptions?.enabledCollections || []
-      )
+      const QUESTION_FETCH_TIMEOUT_MS = 10000
 
-      const timeoutPromise = new Promise<Question[]>((_, reject) =>
-        setTimeout(() => reject(new Error('Question fetch timed out')), QUESTION_FETCH_TIMEOUT_MS)
-      )
+      try {
+        const fetchPromise = fetchRandomQuestions(
+          1,
+          gameState.selectedCategory!,
+          gameState.selectedDifficulty!,
+          humanPlayerIds,
+          turnPlayerId,
+          gameState.gameOptions?.enabledCollections || []
+        )
 
-      Promise.race([fetchPromise, timeoutPromise])
-        .then(questions => {
-          if (questions.length === 0) {
-            throw new Error('No questions found')
-          }
-          setGameState(prev => {
-            // Mark category and difficulty as used for the current turn player (use IDs)
-            const turnPlayerId = prev.currentTurnPlayerId
-            let updatedPlayers = markPlayerCategoryUsed(prev.players, turnPlayerId, prev.selectedCategory!)
-            updatedPlayers = markPlayerDifficultyUsed(updatedPlayers, turnPlayerId, prev.selectedDifficulty!)
-            updatedPlayers = resetPlayerAnswers(updatedPlayers)
-            return {
-              ...prev,
-              isLoading: false,
-              questions: [...prev.questions, questions[0]],
-              gamePhase: 'answering' as GamePhase,
-              timeRemaining: initialLobby?.gameOptions.questionTimeLimit || QUESTION_TIME_LIMIT,
-              selectionTimeRemaining: initialLobby?.gameOptions.selectionTimeLimit || SELECTION_TIME_LIMIT,
-              players: updatedPlayers,
-              selectedCategory: null,
-              selectedDifficulty: null,
-              currentSelectionCategory: null,
-              currentSelectionDifficulty: null
-            }
-          })
-        })
-        .catch(error => {
-          console.error('[useGameState] Failed to load question:', error)
-          if (error instanceof Error && error.message.includes('timed out')) {
-            console.warn('[useGameState] Question fetch exceeded timeout - possible network or database issue')
-          }
-          setGameState(prev => ({
+        const timeoutPromise = new Promise<Question[]>((_, reject) =>
+          setTimeout(() => reject(new Error('Question fetch timed out')), QUESTION_FETCH_TIMEOUT_MS)
+        )
+
+        const questions = await Promise.race([fetchPromise, timeoutPromise])
+
+        if (questions.length === 0) {
+          throw new Error('No questions found')
+        }
+
+        console.log('[useGameState] Question fetched successfully, transitioning phase')
+
+        setGameState(prev => {
+          const turnPlayerId = prev.currentTurnPlayerId
+          let updatedPlayers = markPlayerCategoryUsed(prev.players, turnPlayerId, prev.selectedCategory!)
+          updatedPlayers = markPlayerDifficultyUsed(updatedPlayers, turnPlayerId, prev.selectedDifficulty!)
+          updatedPlayers = resetPlayerAnswers(updatedPlayers)
+
+          return {
             ...prev,
             isLoading: false,
+            questions: [...prev.questions, questions[0]],
+            gamePhase: 'answering' as GamePhase,
+            timeRemaining: initialLobby?.gameOptions.questionTimeLimit || QUESTION_TIME_LIMIT,
+            selectionTimeRemaining: initialLobby?.gameOptions.selectionTimeLimit || SELECTION_TIME_LIMIT,
+            players: updatedPlayers,
             selectedCategory: null,
             selectedDifficulty: null,
             currentSelectionCategory: null,
-            currentSelectionDifficulty: null,
-            error: 'Failed to load question. The category might be empty or a database error occurred.'
-          }))
+            currentSelectionDifficulty: null
+          }
         })
-    }, 2000) // 2 second delay
-    return () => clearTimeout(timer)
+      } catch (error) {
+        console.error('[useGameState] Failed to load question:', error)
 
+        setGameState(prev => ({
+          ...prev,
+          isLoading: false,
+          selectedCategory: null,
+          selectedDifficulty: null,
+          currentSelectionCategory: null,
+          currentSelectionDifficulty: null,
+          error: error instanceof Error ? error.message : 'Failed to load question. Please try anther combination.'
+        }))
+      } finally {
+        isFetchingRef.current = false
+      }
+    }, 2000)
+
+    return () => {
+      clearTimeout(timer)
+    }
   }, [gameState.selectedCategory, gameState.selectedDifficulty, gameState.gamePhase, gameState.isGameActive])
 
   // AI players decide on boost usage and auto-answer when question loads
